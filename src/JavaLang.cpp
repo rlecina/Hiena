@@ -7,7 +7,7 @@ namespace java::lang
 	Class Object::getClass()
 	{
 		// Don't invoke the Java method. This is faster and helps complete
-		// initializetion if needed
+		// initialization if needed
 		return java::lang::Class(GetOrInitClass(*this));
 	}
 

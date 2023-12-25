@@ -35,7 +35,7 @@ namespace hiena
 	#define HIENA_INVOKE_BLOCK(Type, Func) \
 				if constexpr (std::is_same_v<Ret, void>) \
 				{ \
-                    ScopeExit OnExit([&] { CheckException(Env); }); \
+                    ScopeExit OnCheckOnExit([&] { CheckException(Env); }); \
 					return Env->Call##Func##MethodV(Instance, MethodID, list); \
 				}
 
@@ -74,7 +74,7 @@ namespace hiena
 	#define HIENA_INVOKE_BLOCK(Type, Func) \
 					if constexpr (std::is_same_v<Ret, void>) \
 					{ \
-						ScopeExit OnExit([&] { CheckException(Env); }); \
+						ScopeExit OnCheckOnExit([&] { CheckException(Env); }); \
 						return Env->CallStatic##Func##MethodV(Clazz, MethodID, list); \
 					}
 

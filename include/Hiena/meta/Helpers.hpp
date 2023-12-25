@@ -4,10 +4,10 @@
 
 namespace hiena
 {
-	template <typename T>
+	template <typename>
 	constexpr inline bool AlwaysFalse = false;
 
-	template <typename T>
+	template <typename>
 	constexpr inline bool AlwaysTrue = true;
 
 	template <typename T>

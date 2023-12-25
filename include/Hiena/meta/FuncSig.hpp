@@ -31,7 +31,7 @@ namespace hiena
 	using FuncSig_Args = typename FuncSig<T>::Args;
 
 	template <typename T, size_t Index>
-	using FuncSig_A = typename FuncSig<T>::template Arg<Index>;
+	using FuncSig_Arg = typename FuncSig<T>::template Arg<Index>;
 
 	template <typename Ret, typename... Args>
 	struct FuncSig<Ret(Args..., ...)> : FuncSig<Ret(Args...)> {};
