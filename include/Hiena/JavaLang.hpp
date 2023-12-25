@@ -9,13 +9,13 @@ namespace java::lang
 	class Object;
 	class String;
 
-class Object : public hiena::JavaObjectBase
+	class Object : public hiena::detail::JavaObjectBase
 	{
 	public:
 		using JavaObjectBase::JavaObjectBase;
 
 		Class getClass();
-		ClassLoader getClassLoader() const;
+		ClassLoader getClassLoader();
 	};
 
 	class Class : public Object
@@ -23,6 +23,8 @@ class Object : public hiena::JavaObjectBase
 	public:
 		using Object::Object;
 	};
+
+	inline jclass ToArgument(const Class& Obj) { return (jclass)ToArgument((Object&)Obj); }
 
 	class ClassLoader : public Object
 	{

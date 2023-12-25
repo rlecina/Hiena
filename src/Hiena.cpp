@@ -1,15 +1,15 @@
 #include "Hiena.hpp"
 
-#include <pthread.h>
+#include "Hiena/JavaLang.hpp"
 
-#include <chrono>
-#include <thread>
+#include <pthread.h>
 
 namespace hiena
 {
 namespace
 {
 	JavaVM* gVirtualMachine = nullptr;
+	jint gJniVersion = gJniVersion;
 	java::lang::ClassLoader gClassLoader;
 
 	struct EnvData
@@ -57,9 +57,10 @@ namespace
 		}
 	}
 }
-	bool Initialize(JavaVM* Vm, const char* MainClass)
+	bool Initialize(JavaVM* Vm, const char* MainClass, jint JniVersion)
 	{
 		gVirtualMachine = Vm;
+		gJniVersion = JniVersion;
 
 		if (!EnvData::Initialize(&DetachCurrentThread))
 		{
@@ -83,18 +84,8 @@ namespace
 		{
 			return false;
 		}
-		gClassLoader.MakeGlobalRef();
+		gClassLoader = NewGlobalRef(Env, gClassLoader);
 
-		std::thread([]()
-		{
-			using namespace std::chrono_literals;
-			std::this_thread::sleep_for(5s);
-			auto c1 = FindClass("com/example/jnitestbed/MainActivity");
-			std::this_thread::sleep_for(5s);
-			auto c2 = FindClass("com/example/jnitestbed/2MainActivity");
-			std::this_thread::sleep_for(5s);
-			auto c3 = FindClass("com/example/jnitestbed/MainActivity");
-		}).detach();
 		return true;
 	}
 
@@ -103,7 +94,7 @@ namespace
 		EnvData Data = EnvData::CreateFromKey();
 		if (!Data.Env)
 		{
-			if (gVirtualMachine->GetEnv(reinterpret_cast<void**>(&Data.Env), JNI_VERSION) == JNI_EDETACHED)
+			if (gVirtualMachine->GetEnv(reinterpret_cast<void**>(&Data.Env), gJniVersion) == JNI_EDETACHED)
 			{
 				if (gVirtualMachine->AttachCurrentThread(&Data.Env, nullptr) == JNI_OK)
 				{
@@ -115,9 +106,8 @@ namespace
 		return Data.Env;
 	}
 
-	java::lang::Class FindClass(const char* ClassName)
+	java::lang::Class FindClass(const char* ClassName, JNIEnv* Env)
 	{
-		auto Env = GetEnv();
 		java::lang::Class Clazz;
 		java::lang::String Name(ClassName);
 		if (gClassLoader)
@@ -126,12 +116,18 @@ namespace
 		}
 		else
 		{
-			Clazz = java::lang::Class(Env->FindClass(ClassName));
-		}
-		if(Env->ExceptionCheck())
-		{
-			Env->ExceptionDescribe();
-			Env->ExceptionClear();
+			if (!Env)
+			{
+				Env = GetEnv();
+			}
+			jclass ClazzFound = Env->FindClass(ClassName);
+			// Need to think about how to report this
+			if(Env->ExceptionCheck())
+			{
+				Env->ExceptionDescribe();
+				Env->ExceptionClear();
+			}
+			Clazz = java::lang::Class(ClazzFound);
 		}
 		return Clazz;
 	}

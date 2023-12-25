@@ -1,53 +1,74 @@
 #include "Hiena/detail/JavaObjectBase.hpp"
 
+#include <utility>
+
 #include "Hiena/Hiena.hpp"
 
-namespace hiena
+namespace hiena::detail
 {
-	JavaObjectBase::JavaObjectBase(jobject Instance, bool ShouldAddLocalRef)
+	JavaObjectBase::JavaObjectBase(jobject Instance)
 	: Instance(Instance)
+	{
+	}
+
+	JavaObjectBase::JavaObjectBase(jobject Instance, LocalOwnership_t)
+	: JavaObjectBase(Instance)
 	{
 		if (Instance)
 		{
-			JNIEnv* Env = GetEnv();
-			if (ShouldAddLocalRef)
-			{
-				Instance = Env->NewLocalRef(Instance);
-			}
-			Clazz = (jclass)Env->NewLocalRef(Env->GetObjectClass(Instance));
+			RefType = JavaRefType::OwningLocalRef;
 		}
 	}
 
 	JavaObjectBase::JavaObjectBase(const JavaObjectBase& Other)
 	{
-		if (Other.Instance)
-		{
-			std::tie(Instance, Clazz) = Other.CloneFields();
-			IsGlobalReference = Other.IsGlobalReference;
-		}
+		*this = Other;
 	}
 
 	JavaObjectBase::JavaObjectBase(JavaObjectBase&& Other)
-	: Instance(std::exchange(Other.Instance, nullptr))
-	, Clazz(std::exchange(Other.Clazz, nullptr))
-	, IsGlobalReference(std::exchange(Other.IsGlobalReference, false))
 	{
+		*this = std::move(Other);
 	}
 
-	JavaObjectBase& JavaObjectBase::operator=(JavaObjectBase&& Rhs)
+	JavaObjectBase& JavaObjectBase::operator=(JavaObjectBase&& Other)
 	{
 		Release();
-		Instance = std::exchange(Rhs.Instance, nullptr);
-		Clazz = std::exchange(Rhs.Clazz, nullptr);
-		IsGlobalReference = std::exchange(Rhs.IsGlobalReference, false);
+		Instance = std::exchange(Other.Instance, nullptr);
+		Clazz = std::exchange(Other.Clazz, nullptr);
+		RefType = std::exchange(Other.RefType, JavaRefType::Ignored);
 		return *this;
 	}
 
-	JavaObjectBase& JavaObjectBase::operator=(const JavaObjectBase& Rhs)
+	JavaObjectBase& JavaObjectBase::operator=(const JavaObjectBase& Other)
 	{
 		Release();
-		std::tie(Instance, Clazz) = Rhs.CloneFields();
-		IsGlobalReference = Rhs.IsGlobalRef();
+		if (Other.Instance)
+		{
+			switch (Other.RefType)
+			{
+				case JavaRefType::Ignored:
+				{
+					Instance = Other.Instance;
+					Clazz = Other.Clazz;
+					break;
+				}
+				case JavaRefType::OwningLocalRef:
+				{
+					JNIEnv* Env = GetEnv();
+					Instance = Env->NewLocalRef(Other.Instance);
+					Clazz = (jclass)Env->NewLocalRef(Other.Clazz);
+					break;
+				}
+				case JavaRefType::OwningGlobalRef:
+				{
+					JNIEnv* Env = GetEnv();
+					Instance = Env->NewGlobalRef(Other.Instance);
+					Clazz = (jclass)Env->NewGlobalRef(Other.Clazz);
+					break;
+				}
+			}
+			RefType = Other.RefType;
+		}
 		return *this;
 	}
 
@@ -56,34 +77,27 @@ namespace hiena
 		Release();
 	}
 
-	void JavaObjectBase::MakeGlobalRef()
+	jclass JavaObjectBase::GetOrInitClassInternal(JNIEnv* Env) const
 	{
-		if (!IsGlobalReference && Instance)
+		if (Clazz)
 		{
-			jobject OldInstance = Instance;
-			jclass OldClazz = Clazz;
-			JNIEnv* Env = GetEnv();
-			Instance = Env->NewGlobalRef(OldInstance);
-			Clazz = (jclass)Env->NewGlobalRef(OldClazz);
-			Env->DeleteLocalRef(OldInstance);
-			Env->DeleteLocalRef(OldClazz);
-			IsGlobalReference = true;
+			return Clazz;
 		}
-	}
+		if (!Instance)
+		{
+			return nullptr;
+		}
+		if (!Env)
+		{
+			Env = GetEnv();
+		}
 
-	void JavaObjectBase::ReleaseGlobalRef()
-	{
-		if (IsGlobalReference && Instance)
+		Clazz = Env->GetObjectClass(Instance);
+		if(RefType == JavaRefType::OwningLocalRef)
 		{
-			jobject OldInstance = Instance;
-			jclass OldClazz = Clazz;
-			JNIEnv* Env = GetEnv();
-			Instance = Env->NewLocalRef(OldInstance);
-			Clazz = (jclass)Env->NewLocalRef(OldClazz);
-			Env->DeleteGlobalRef(OldInstance);
-			Env->DeleteGlobalRef(OldClazz);
-			IsGlobalReference = false;
+			Clazz = (jclass)Env->NewLocalRef(Clazz);
 		}
+		return Clazz;
 	}
 
 	void JavaObjectBase::Release()
@@ -92,35 +106,27 @@ namespace hiena
 		{
 			return;
 		}
-		JNIEnv* Env = GetEnv();
-		if (IsGlobalReference)
+		switch (RefType)
 		{
-			Env->DeleteGlobalRef(Instance);
-			Env->DeleteGlobalRef(Clazz);
-		}
-		else
-		{
-			Env->DeleteLocalRef(Instance);
-			Env->DeleteLocalRef(Clazz);
+			case JavaRefType::OwningLocalRef:
+			{
+				JNIEnv* Env = GetEnv();
+				Env->DeleteLocalRef(Instance);
+				Env->DeleteLocalRef(Clazz);
+				break;
+			}
+			case JavaRefType::OwningGlobalRef:
+			{
+				JNIEnv* Env = GetEnv();
+				Env->DeleteGlobalRef(Instance);
+				Env->DeleteGlobalRef(Clazz);
+				break;
+			}
+			default:
+				break;
 		}
 		Instance = nullptr;
 		Clazz = nullptr;
-	}
-
-	std::tuple<jobject,jclass> JavaObjectBase::CloneFields() const
-	{
-		if (!Instance)
-		{
-			return {};
-		}
-		JNIEnv* Env = GetEnv();
-		if (IsGlobalReference)
-		{
-			return std::tuple(Env->NewGlobalRef(Instance), (jclass)Env->NewGlobalRef(Clazz));
-		}
-		else
-		{
-			return std::tuple(Env->NewLocalRef(Instance), (jclass)Env->NewLocalRef(Clazz));
-		}
+		RefType = JavaRefType::Ignored;
 	}
 }

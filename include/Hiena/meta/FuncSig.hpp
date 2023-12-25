@@ -1,6 +1,6 @@
 #pragma once
 
-#include "meta/Helpers.hpp"
+#include "Hiena/meta/Helpers.hpp"
 
 #include <tuple>
 
@@ -13,7 +13,7 @@ namespace hiena
 	};
 
 	template <typename R, typename... As>
-	struct FuncSig<R(As...)>
+	struct FuncSig<R(*)(As...)>
 	{
 		using Ret = R;
 		using Args = std::tuple<As...>;
@@ -38,13 +38,13 @@ namespace hiena
 
 #define HIENA_MEMFUNC(CONST, VOLATILE, REF_QUAL, NOEXCEPT)	\
 				template <typename Ret, typename C, typename... Args>\
-				struct FuncSig<Ret(C::*)(Args...) CONST VOLATILE REF_QUAL NOEXCEPT> : FuncSig<Ret(Args...)> {};
+				struct FuncSig<Ret(C::*)(Args...) CONST VOLATILE REF_QUAL NOEXCEPT> : FuncSig<Ret(*)(Args...)> {};
 
 #define HIENA_MEMFUNC_VARIADIC(CONST, VOLATILE, REF_QUAL, NOEXCEPT)	\
 				template <typename Ret, typename C, typename... Args>\
-				struct FuncSig<Ret(C::*)(Args..., ...) CONST VOLATILE REF_QUAL NOEXCEPT> : FuncSig<Ret(Args...)> {};
+				struct FuncSig<Ret(C::*)(Args..., ...) CONST VOLATILE REF_QUAL NOEXCEPT> : FuncSig<Ret(*)(Args...)> {};
 
-#include "meta/MemFunVariants.hpp"
+#include "Hiena/meta/MemFunVariants.hpp"
 
 #undef HIENA_MEMFUNC
 #undef HIENA_MEMFUNC_VARIADIC
