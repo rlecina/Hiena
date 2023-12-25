@@ -4,4 +4,5 @@ project(Hiena)
 
 add_subdirectory(src)
 
-target_include_directories(Hiena INTERFACE ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(Hiena PUBLIC include)
+target_include_directories(Hiena PRIVATE src)

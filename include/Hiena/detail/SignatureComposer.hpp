@@ -1,16 +1,42 @@
 #pragma once
 
 #include <string_view>
+#include <variant>
 
-#include "CompileTimeString.hpp"
-#include "JavaLang.hpp"
+#include "Hiena/JavaLang.hpp"
+#include "Hiena/meta/Helpers.hpp"
+#include "Hiena/utility/CompileTimeString.hpp"
 
 namespace hiena
 {
 	template <typename T>
 	struct HasJavaConversion
 	{
-		static constexpr bool Value = std::is_base_of_v<::java::lang::Object, T>;
+		static constexpr bool Value = std::is_base_of_v<::java::lang::Object, T> ||
+		        std::is_same_v<void, T> ||
+				std::is_same_v<jboolean, T> ||
+				std::is_same_v<jbyte, T> ||
+				std::is_same_v<jchar, T> ||
+				std::is_same_v<jint, T> ||
+				std::is_same_v<jshort, T> ||
+				std::is_same_v<jlong, T> ||
+				std::is_same_v<jfloat, T> ||
+				std::is_same_v<jdouble, T> ||
+				std::is_same_v<jshort, T> ||
+				std::is_same_v<jshort, T>; /*
+ 		// How to define array? DoI need wrappers? (Probably yes...)
+		//[ type 	type[]
+		//
+		//jobjectArray (object arrays)
+		//jbooleanArray (boolean arrays)
+		//jbyteArray (byte arrays)
+		//jcharArray (char arrays)
+		//jshortArray (short arrays)
+		//jintArray (int arrays)
+		//jlongArray (long arrays)
+		//jfloatArray (float arrays)
+		//jdoubleArray (double arrays)
+ */
 	};
 
 	namespace detail
@@ -106,13 +132,16 @@ namespace hiena
 		}
 
 		template <typename T>
-		using ValueType = std::remove_pointer_t<std::remove_cvref_t<T>>;
-
-		template <typename T>
 		struct MangledName
 		{
 			static_assert(HasJavaConversion<ValueType<T>>::Value, "Type does not support Java conversion");
 			static constexpr auto Result = Mangler<T>::GetJavaMangledType();
+		};
+
+		template <>
+		struct MangledName<void>
+		{
+			static constexpr const char Result[] = "V";
 		};
 
 		template <>
@@ -195,72 +224,28 @@ namespace hiena
 				}();
 		};
 
-#define MANGLED_NAME_FOR_CLASS_MEMBER(CONST, VOLATILE, REF_QUAL, NOEXCEPT)	\
+		template <typename Ret, typename... Args>
+		struct MangledName<Ret(Args..., ...)> : MangledName<Ret(Args...)> {};
+
+#define HIENA_MEMFUNC(CONST, VOLATILE, REF_QUAL, NOEXCEPT)	\
 				template <typename Ret, typename C, typename... Args>\
-				struct MangledName<Ret(C::*)(Args...) CONST VOLATILE REF_QUAL NOEXCEPT> : public MangledName<Ret(Args...)> {};
+				struct MangledName<Ret(C::*)(Args...) CONST VOLATILE REF_QUAL NOEXCEPT> : MangledName<Ret(Args...)> {};
 
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	/*volatile*/,	,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		/*volatile*/,	,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	volatile,		,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		volatile,		,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	/*volatile*/,	&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		/*volatile*/,	&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	volatile,		&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		volatile,		&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	/*volatile*/,	&&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		/*volatile*/,	&&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	volatile,		&&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		volatile,		&&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	/*volatile*/,	,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		/*volatile*/,	,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	volatile,		,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		volatile,		,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	/*volatile*/,	&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		/*volatile*/,	&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	volatile,		&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		volatile,		&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	/*volatile*/,	&&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		/*volatile*/,	&&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER( /*const*/,	volatile,		&&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER( const,		volatile,		&&,	noexcept)
-
-#undef MANGLED_NAME_FOR_CLASS_MEMBER
-#define MANGLED_NAME_FOR_CLASS_MEMBER_VAR(CONST, VOLATILE, REF_QUAL, NOEXCEPT)	\
+#define HIENA_MEMFUNC_VARIADIC(CONST, VOLATILE, REF_QUAL, NOEXCEPT)	\
 				template <typename Ret, typename C, typename... Args>\
-				struct MangledName<Ret(C::*)(Args..., ...) CONST VOLATILE REF_QUAL NOEXCEPT> : public MangledName<Ret(Args...)> {};
+				struct MangledName<Ret(C::*)(Args..., ...) CONST VOLATILE REF_QUAL NOEXCEPT> : MangledName<Ret(Args...)> {};
 
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	/*volatile*/,	,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		/*volatile*/,	,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	volatile,		,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		volatile,		,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	/*volatile*/,	&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		/*volatile*/,	&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	volatile,		&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		volatile,		&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	/*volatile*/,	&&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		/*volatile*/,	&&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	volatile,		&&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		volatile,		&&,	/*noexcept*/)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	/*volatile*/,	,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		/*volatile*/,	,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	volatile,		,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		volatile,		,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	/*volatile*/,	&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		/*volatile*/,	&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	volatile,		&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		volatile,		&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	/*volatile*/,	&&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		/*volatile*/,	&&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( /*const*/,	volatile,		&&,	noexcept)
-		MANGLED_NAME_FOR_CLASS_MEMBER_VAR( const,		volatile,		&&,	noexcept)
-#undef MANGLED_NAME_FOR_CLASS_MEMBER_VAR
+#include "Hiena/meta/MemFunVariants.hpp"
+
+#undef HIENA_MEMFUNC
+#undef HIENA_MEMFUNC_VARIADIC
 	}
 
 	template <typename T>
 	const char* ClassName()
 	{
-		static_assert(HasJavaConversion<detail::ValueType<T>>::Value, "Type does not support Java conversion");
-		static constexpr auto Result = detail::Mangler<detail::ValueType<T>>::GetJavaClass();
+		static_assert(HasJavaConversion<ValueType<T>>::Value, "Type does not support Java conversion");
+		static constexpr auto Result = detail::Mangler<ValueType<T>>::GetJavaClass();
 		return Result.c_str();
 	};
 
@@ -273,7 +258,7 @@ namespace hiena
 	template <typename T>
 	const char* Mangle(T&&)
 	{
-		return detail::MangledName<detail::ValueType<T>>::Result.c_str();
+		return detail::MangledName<ValueType<T>>::Result.c_str();
 	};
 
 	template <auto Func>

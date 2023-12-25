@@ -2,8 +2,8 @@
 
 #include <jni.h>
 
-#include "JavaLang.hpp"
-#include "SignatureComposer.hpp"
+#include "Hiena/JavaLang.hpp"
+#include "Hiena/detail/SignatureComposer.hpp"
 
 namespace hiena
 {
