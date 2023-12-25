@@ -152,59 +152,21 @@ namespace hiena
 			static constexpr auto Result = Mangler<T>::GetJavaMangledType();
 		};
 
-		template <>
-		struct MangledName<void>
-		{
-			static constexpr auto Result = "V"_cs;
-		};
+#define HIENA_PRIMITIVE_MANGLED_NAME(TYPE, MANGLED) \
+        template <> \
+		struct MangledName<TYPE> { static constexpr auto Result = MANGLED##_cs; };
 
-		template <>
-		struct MangledName<jboolean>
-		{
-			static constexpr auto Result = "Z"_cs;
-		};
+		HIENA_PRIMITIVE_MANGLED_NAME(void, "V")
+		HIENA_PRIMITIVE_MANGLED_NAME(jboolean, "Z")
+		HIENA_PRIMITIVE_MANGLED_NAME(jbyte, "B")
+		HIENA_PRIMITIVE_MANGLED_NAME(jchar, "C")
+		HIENA_PRIMITIVE_MANGLED_NAME(jshort, "S")
+		HIENA_PRIMITIVE_MANGLED_NAME(jint, "I")
+		HIENA_PRIMITIVE_MANGLED_NAME(jlong, "J")
+		HIENA_PRIMITIVE_MANGLED_NAME(jfloat, "F")
+		HIENA_PRIMITIVE_MANGLED_NAME(jdouble, "D")
 
-		template <>
-		struct MangledName<jbyte>
-		{
-			static constexpr auto Result = "B"_cs;
-		};
-
-		template <>
-		struct MangledName<jchar>
-		{
-			static constexpr auto Result = "C"_cs;
-		};
-
-		template <>
-		struct MangledName<jshort>
-		{
-			static constexpr auto Result = "S"_cs;
-		};
-
-		template <>
-		struct MangledName<jint>
-		{
-			static constexpr auto Result = "I"_cs;
-		};
-
-		template <>
-		struct MangledName<jlong>
-		{
-			static constexpr auto Result = "J"_cs;
-		};
-
-		template <>
-		struct MangledName<jfloat>
-		{
-			static constexpr auto Result = "F"_cs;
-		};
-
-		template <>
-		struct MangledName<jdouble>
-		{
-			static constexpr auto Result = "D"_cs;
-		};
+#undef HIENA_PRIMITIVE_MANGLED_NAME
 
 		template <typename Ret, typename... Args>
 		struct MangledName<Ret(Args...)>
