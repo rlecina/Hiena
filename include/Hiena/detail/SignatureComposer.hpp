@@ -3,39 +3,17 @@
 #include <string_view>
 
 #include "Hiena/detail/JavaObjectBase.hpp"
+#include "Hiena/JArray.hpp"
 #include "Hiena/meta/Helpers.hpp"
 #include "Hiena/utility/CompileTimeString.hpp"
+#include "Hiena/utility/JniTraits.hpp"
 
 namespace hiena
 {
 	template <typename T>
 	struct HasJavaConversion
 	{
-		static constexpr bool Value = std::is_base_of_v<detail::JavaObjectBase, T> ||
-		        std::is_same_v<void, T> ||
-				std::is_same_v<jboolean, T> ||
-				std::is_same_v<jbyte, T> ||
-				std::is_same_v<jchar, T> ||
-				std::is_same_v<jint, T> ||
-				std::is_same_v<jshort, T> ||
-				std::is_same_v<jlong, T> ||
-				std::is_same_v<jfloat, T> ||
-				std::is_same_v<jdouble, T> ||
-				std::is_same_v<jshort, T> ||
-				std::is_same_v<jshort, T>; /*
- 		// How to define array? DoI need wrappers? (Probably yes...)
-		//[ type 	type[]
-		//
-		//jobjectArray (object arrays)
-		//jbooleanArray (boolean arrays)
-		//jbyteArray (byte arrays)
-		//jcharArray (char arrays)
-		//jshortArray (short arrays)
-		//jintArray (int arrays)
-		//jlongArray (long arrays)
-		//jfloatArray (float arrays)
-		//jdoubleArray (double arrays)
- */
+		static constexpr bool Value = IsJniObjectType<T> || IsJniPrimitiveType<T>;
 	};
 
 	namespace detail
@@ -52,7 +30,7 @@ namespace hiena
 		}
 
 		template <auto N>
-		constexpr int GetJavaClassLength(const CompileTimeString<N>& CppType)
+		constexpr int ComputeJavaClassLength(const CompileTimeString<N>& CppType)
 		{
 			int Size = 0;
 			char Prev = 0;
@@ -68,7 +46,7 @@ namespace hiena
 		}
 
 		template <auto PathLikeSize, auto N>
-		constexpr auto GetJavaClassName(const CompileTimeString<N>& CppType)
+		constexpr auto ComputeJavaClass(const CompileTimeString<N>& CppType)
 		{
 			char Buffer[PathLikeSize];
 			char Prev = 0;
@@ -85,42 +63,46 @@ namespace hiena
 		}
 
 #ifdef __clang__
-		static constexpr const char StarFuncTag[] = "::";
+		static constexpr const char StartFuncTag[] = "::";
 		static constexpr const char EndFuncTag[] = "]";
 #elif defined(__GNUC__) || defined(__GNUG__)
-		static constexpr const char StarFuncTag[] = "::";
+		static constexpr const char StartFuncTag[] = "::";
 		static constexpr const char EndFuncTag[] = "]";
 #endif
 
 		template <auto Func>
-		consteval auto GetFuncName()
+		struct GetFuncName
 		{
-			static_assert(IsFunctionPointer<decltype(Func)> || std::is_member_function_pointer_v<decltype(Func)>, "Unsupported type");
-			constexpr std::string_view ThisFunction(__PRETTY_FUNCTION__); //Location.function_name());
-			constexpr auto Start = FindTagExcluded(ThisFunction, StarFuncTag);
-			constexpr auto End = FindTagIncluded(ThisFunction, EndFuncTag);
-			return CompileTimeString<End - Start + 1>(ThisFunction.data() + Start, End - Start);
-		}
+			static constexpr auto Result = [] {
+					static_assert(IsFunctionPointer<decltype(Func)> || std::is_member_function_pointer_v<decltype(Func)>, "Unsupported type");
+					constexpr std::string_view ThisFunction(__PRETTY_FUNCTION__); //Location.function_name());
+					constexpr auto Start = FindTagExcluded(ThisFunction, StartFuncTag);
+					constexpr auto End = FindTagIncluded(ThisFunction, EndFuncTag);
+					return CompileTimeString<End - Start + 1>(ThisFunction.data() + Start, End - Start);
+				}();
+		};
 
 #ifdef __clang__
-		static constexpr const char StarFuncClassTag[] = "&";
+		static constexpr const char StartFuncClassTag[] = "&";
 		static constexpr const char EndFuncClassTag[] = "::";
 #elif defined(__GNUC__) || defined(__GNUG__)
-		static constexpr const char StarFuncClassTag[] = "&";
+		static constexpr const char StartFuncClassTag[] = "&";
 		static constexpr const char EndFuncClassTag[] = "::";
 #endif
 
 		template <auto Func>
-		consteval auto GetJavaClassFromFunc()
+		struct GetJavaClassFromFunc
 		{
-			static_assert(IsFunctionPointer<decltype(Func)> || std::is_member_function_pointer_v<decltype(Func)>, "Unsupported type");
-			constexpr std::string_view ThisFunction(__PRETTY_FUNCTION__); //Location.function_name());
-			constexpr auto Start = FindTagExcluded(ThisFunction, StarFuncClassTag);
-			constexpr auto End = FindTagIncluded(ThisFunction, EndFuncClassTag);
-			constexpr auto CppType = CompileTimeString<End - Start + 1>(ThisFunction.data() + Start, End - Start);
-			constexpr auto MangledSize = GetJavaClassLength(CppType);
-			return GetJavaClassName<MangledSize>(CppType);
-		}
+			static constexpr auto Result = [] {
+				static_assert(IsFunctionPointer<decltype(Func)> || std::is_member_function_pointer_v<decltype(Func)>, "Unsupported type");
+				constexpr std::string_view ThisFunction(__PRETTY_FUNCTION__); //Location.function_name());
+				constexpr auto Start = FindTagExcluded(ThisFunction, StartFuncClassTag);
+				constexpr auto End = FindTagIncluded(ThisFunction, EndFuncClassTag);
+				constexpr auto CppType = CompileTimeString<End - Start + 1>(ThisFunction.data() + Start, End - Start);
+				constexpr auto MangledSize = ComputeJavaClassLength(CppType);
+				return ComputeJavaClass<MangledSize>(CppType);
+			}();
+		};
 
 #ifdef __clang__
 		static constexpr const char StartTag[] = "[Object = ";
@@ -143,17 +125,24 @@ namespace hiena
 				return CompileTimeString<Length+1>(ThisFunction.data() + Start, Length);
 			}
 
-			static consteval auto GetJavaClass()
+			static consteval auto GetJavaClassName()
 			{
 				constexpr auto CppType = GetCppTypename();
-				constexpr auto PathLikeSize = GetJavaClassLength(CppType);
-				return GetJavaClassName<PathLikeSize>(CppType);
+				constexpr auto PathLikeSize = ComputeJavaClassLength(CppType);
+				return ComputeJavaClass<PathLikeSize>(CppType);
 			}
 
 			static consteval auto GetJavaMangledType()
 			{
-				return "L" + GetJavaClass() + ";";
+				return "L" + GetJavaClassName() + ";";
 			}
+		};
+
+		template <typename T>
+		struct GetJavaClassName
+		{
+			static_assert(HasJavaConversion<ValueType<T>>::Value, "Type does not support Java conversion");
+			static constexpr auto Result = Mangler<ValueType<T>>::GetJavaClassName();
 		};
 
 		template <typename T>
@@ -166,70 +155,56 @@ namespace hiena
 		template <>
 		struct MangledName<void>
 		{
-			static constexpr const char Result[] = "V";
+			static constexpr auto Result = "V"_cs;
 		};
 
 		template <>
 		struct MangledName<jboolean>
 		{
-			static constexpr const char Result[] = "Z";
+			static constexpr auto Result = "Z"_cs;
 		};
 
 		template <>
 		struct MangledName<jbyte>
 		{
-			static constexpr const char Result[] = "B";
+			static constexpr auto Result = "B"_cs;
 		};
 
 		template <>
 		struct MangledName<jchar>
 		{
-			static constexpr const char Result[] = "C";
+			static constexpr auto Result = "C"_cs;
 		};
 
 		template <>
 		struct MangledName<jshort>
 		{
-			static constexpr const char Result[] = "S";
+			static constexpr auto Result = "S"_cs;
 		};
 
 		template <>
 		struct MangledName<jint>
 		{
-			static constexpr const char Result[] = "I";
+			static constexpr auto Result = "I"_cs;
 		};
 
 		template <>
 		struct MangledName<jlong>
 		{
-			static constexpr const char Result[] = "J";
+			static constexpr auto Result = "J"_cs;
 		};
 
 		template <>
 		struct MangledName<jfloat>
 		{
-			static constexpr const char Result[] = "F";
+			static constexpr auto Result = "F"_cs;
 		};
 
 		template <>
 		struct MangledName<jdouble>
 		{
-			static constexpr const char Result[] = "D";
+			static constexpr auto Result = "D"_cs;
 		};
-
-		// How to define array? DoI need wrappers? (Probably yes...)
-		//[ type 	type[]
-		//
-		//jobjectArray (object arrays)
-		//jbooleanArray (boolean arrays)
-		//jbyteArray (byte arrays)
-		//jcharArray (char arrays)
-		//jshortArray (short arrays)
-		//jintArray (int arrays)
-		//jlongArray (long arrays)
-		//jfloatArray (float arrays)
-		//jdoubleArray (double arrays)
-
 
 		template <typename Ret, typename... Args>
 		struct MangledName<Ret(Args...)>
@@ -247,6 +222,12 @@ namespace hiena
 						return "()" + MangledName<ValueType<Ret>>::Result;
 					}
 				}();
+		};
+
+		template <typename T>
+		struct MangledName<JArray<T>>
+		{
+			static constexpr auto Result = "[" + MangledName<ValueType<T>>::Result;
 		};
 
 //Variadic functions not supported
@@ -271,30 +252,26 @@ namespace hiena
 	}
 
 	template <typename T>
-	const char* JavaClassName()
+	const char* GetJavaClassName()
 	{
-		static_assert(HasJavaConversion<ValueType<T>>::Value, "Type does not support Java conversion");
-		static constexpr auto Result = detail::Mangler<ValueType<T>>::GetJavaClass();
-		return Result.c_str();
+		return detail::GetJavaClassName<T>::Result.Content;
 	}
 
 	template <typename T>
-	constexpr const char* Mangle(T&&)
+	constexpr const char* GetMangledName(T&&)
 	{
-		return detail::MangledName<ValueType<T>>::Result.c_str();
+		return detail::MangledName<ValueType<T>>::Result.Content;
 	}
 
 	template <auto Func>
-	const char* FuncName()
+	constexpr const char* GetFuncName()
 	{
-		static constexpr auto Result = detail::GetFuncName<Func>();
-		return Result.c_str();
+		return detail::GetFuncName<Func>::Result.Content;
 	}
 
 	template <auto Func>
-	const char* JavaClassFromFunc()
+	constexpr const char* GetJavaClassFrom()
 	{
-		static constexpr auto Result = detail::GetJavaClassFromFunc<Func>();
-		return Result.c_str();
+		return detail::GetJavaClassFromFunc<Func>::Result.Content;
 	}
 }

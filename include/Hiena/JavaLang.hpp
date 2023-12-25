@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Hiena/detail/JavaObjectBase.hpp"
+#include "Hiena/JArray.hpp"
 
 namespace java::lang
 {

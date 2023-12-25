@@ -31,7 +31,7 @@ namespace hiena::detail
 
 		// Some utilities
 		friend bool operator==(nullptr_t, const JavaObjectBase& Rhs) { return Rhs.Instance == nullptr; }
-		friend bool operator==(const JavaObjectBase& Rhs, nullptr_t) { return Rhs.Instance == nullptr; }
+		friend bool operator==(const JavaObjectBase& Lhs, nullptr_t) { return Lhs.Instance == nullptr; }
 		explicit operator bool() const { return Instance != nullptr; }
 
 		friend jobject ToArgument(const JavaObjectBase& Obj) { return Obj.Instance; }
@@ -42,7 +42,7 @@ namespace hiena::detail
 		{
 			static_assert(std::is_base_of_v<JavaObjectBase, T>, "Should be a java type");
 			jobject Instance = Env->NewLocalRef(Other.Instance);
-			return T(Instance, true);
+			return T(Instance, LocalOwnership);
 		}
 
 		template <typename T>
@@ -56,7 +56,8 @@ namespace hiena::detail
 			New.RefType = JavaRefType::OwningGlobalRef;
 			return New;
 		}
-
+	protected:
+		jobject getInstance() const { return Instance; }
 	private:
 		jobject Instance = nullptr;
 		mutable jclass Clazz = nullptr;

@@ -113,7 +113,9 @@ namespace hiena
 		static Ret Invoke(detail::JavaObjectBase* Instance, Args&&... Arg)
 		{
 			JNIEnv* Env = hiena::GetEnv();
-			static jmethodID MethodID = Env->GetMethodID(GetOrInitClass(*Instance, Env), FuncName<Func>(), Mangle(Func));
+			constexpr const char* FuncName = GetFuncName<Func>();
+			constexpr const char* FuncMangledName = GetMangledName(Func);
+			static jmethodID MethodID = Env->GetMethodID(GetOrInitClass(*Instance, Env), FuncName, FuncMangledName);
 			detail::CheckException(Env);
 			return detail::InvokerDetail<Ret>::Invoke(Env, ToArgument(*Instance), MethodID, ToArgument(Arg)...);
 		}
@@ -122,8 +124,12 @@ namespace hiena
 		static Ret StaticInvoke(Args&&... Arg)
 		{
 			JNIEnv* Env = hiena::GetEnv();
-			java::lang::Class Clazz = FindClass(JavaClassFromFunc<Func>(), Env);
-			static jmethodID MethodID = Env->GetStaticMethodID(ToArgument(Clazz), FuncName<Func>(), Mangle(Func));
+
+			constexpr const char* ClassName = GetJavaClassFrom<Func>();
+			constexpr const char* FuncName = GetFuncName<Func>();
+			constexpr const char* FuncMangledName = GetMangledName(Func);
+			java::lang::Class Clazz = FindClass(ClassName, Env);
+			static jmethodID MethodID = Env->GetStaticMethodID(ToArgument(Clazz), FuncName, FuncMangledName);
 			detail::CheckException(Env);
 			return detail::StaticInvokerDetail<Ret>::Invoke(Env, ToArgument(Clazz), MethodID, ToArgument(Arg)...);
 		}
