@@ -1,7 +1,5 @@
 #include "Hiena.hpp"
 
-#include "JavaLang.hpp"
-#include "support/SignatureComposer.hpp"
 #include <pthread.h>
 
 #include <chrono>
@@ -12,8 +10,7 @@ namespace hiena
 namespace
 {
 	JavaVM* gVirtualMachine = nullptr;
-	jobject gClassLoader = nullptr;
-	jmethodID gFindClassMethod = nullptr;
+	java::lang::ClassLoader gClassLoader;
 
 	struct EnvData
 	{
@@ -76,21 +73,17 @@ namespace
 			return false;
 		}
 
-		jobject ActivityClass = (jobject)Env->FindClass(MainClass);
-		jclass Class = Env->GetObjectClass(ActivityClass);
-		jmethodID GetClassLoaderMethod = Env->GetMethodID(Class, "getClassLoader", Mangle(&java::lang::Object::getClassLoader));
-		gClassLoader = Env->NewGlobalRef(Env->CallObjectMethod(ActivityClass, GetClassLoaderMethod));
-		if (!gClassLoader)
+		java::lang::Class ActivityClazz(Env->FindClass(MainClass));
+		if (ActivityClazz == nullptr)
 		{
 			return false;
 		}
-		jclass ClassLoaderClass = Env->FindClass(ClassName<java::lang::ClassLoader>());
-		gFindClassMethod = Env->GetMethodID(ClassLoaderClass, "findClass", Mangle(&java::lang::ClassLoader::findClass));
-		if (!gFindClassMethod)
+		gClassLoader = ActivityClazz.getClassLoader();
+		if (gClassLoader == nullptr)
 		{
-			gClassLoader = nullptr;
 			return false;
 		}
+		gClassLoader.MakeGlobalRef();
 
 		std::thread([]()
 		{
@@ -122,25 +115,24 @@ namespace
 		return Data.Env;
 	}
 
-	jclass FindClass(const char* ClassName)
+	java::lang::Class FindClass(const char* ClassName)
 	{
 		auto Env = GetEnv();
-		jstring Name = Env->NewStringUTF(ClassName);
-		jclass Clazz = nullptr;
-		if (gClassLoader && gFindClassMethod)
+		java::lang::Class Clazz;
+		java::lang::String Name(ClassName);
+		if (gClassLoader)
 		{
-			Clazz = (jclass)Env->CallObjectMethod(gClassLoader, gFindClassMethod, Name);
+			Clazz = gClassLoader.findClass(ClassName);
 		}
 		else
 		{
-			Clazz = Env->FindClass(ClassName);
+			Clazz = java::lang::Class(Env->FindClass(ClassName));
 		}
 		if(Env->ExceptionCheck())
 		{
 			Env->ExceptionDescribe();
 			Env->ExceptionClear();
 		}
-		Env->DeleteLocalRef(Name);
 		return Clazz;
 	}
 }

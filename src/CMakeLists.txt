@@ -4,4 +4,5 @@ set(CMAKE_CXX_EXTENSIONS NO)
 
 include_directories(Hiena ${PROJECT_SOURCE_DIR}/include/Hiena)
 
-add_library(Hiena STATIC Hiena.cpp)
+add_library(Hiena STATIC Hiena.cpp
+                         JavaLang.cpp)
