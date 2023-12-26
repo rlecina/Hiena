@@ -100,6 +100,9 @@ namespace hiena
 	#undef HIENA_INVOKE_BLOCK
 			}
 		};
+
+		template <typename T>
+		std::enable_if_t<IsJniRegularPrimitiveType<T>,T> ToJniArgument(T Arg, JNIEnv*) { return Arg; }
 }
 
 	template <auto Func>
@@ -109,28 +112,32 @@ namespace hiena
 		using Ret = hiena::FuncSig_R<FuncType>;
 		static_assert(std::is_same_v<Ret, hiena::ValueType<Ret>>, "Only value types supported as return type");
 
-		template <typename... Args>
-		static Ret Invoke(detail::JavaObjectBase* Instance, Args&&... Arg)
+		template <typename T, typename... Args>
+		static Ret Invoke(T* Instance, Args&&... Arg)
 		{
+			static_assert(std::is_invocable_v<FuncType, T*, Args...>, "Arguments in wrong order");
+			using namespace detail;
 			JNIEnv* Env = hiena::GetEnv();
 			constexpr const char* FuncName = GetFuncName<Func>();
 			constexpr const char* FuncMangledName = GetMangledName(Func);
-			static jmethodID MethodID = Env->GetMethodID(GetOrInitClass(*Instance, Env), FuncName, FuncMangledName);
-			detail::CheckException(Env);
-			return detail::InvokerDetail<Ret>::Invoke(Env, ToArgument(*Instance), MethodID, ToArgument(Arg)...);
+			static jmethodID MethodID = Env->GetMethodID(Instance->GetOrInitClassInternal(Env), FuncName, FuncMangledName);
+			CheckException(Env);
+			return InvokerDetail<Ret>::Invoke(Env, ToJniArgument(*Instance, Env), MethodID, ToJniArgument(Arg, Env)...);
 		}
 
 		template <typename... Args>
 		static Ret StaticInvoke(Args&&... Arg)
 		{
+			static_assert(std::is_invocable_v<FuncType, Args...>, "Arguments in wrong order");
+			using namespace detail;
 			JNIEnv* Env = hiena::GetEnv();
 			constexpr const char* ClassName = GetJavaClassFrom<Func>();
 			constexpr const char* FuncName = GetFuncName<Func>();
 			constexpr const char* FuncMangledName = GetMangledName(Func);
 			java::lang::Class Clazz = FindClass(ClassName, Env);
-			static jmethodID MethodID = Env->GetStaticMethodID(ToArgument(Clazz), FuncName, FuncMangledName);
-			detail::CheckException(Env);
-			return detail::StaticInvokerDetail<Ret>::Invoke(Env, ToArgument(Clazz), MethodID, ToArgument(Arg)...);
+			static jmethodID MethodID = Env->GetStaticMethodID(ToJniArgument(Clazz, Env), FuncName, FuncMangledName);
+			CheckException(Env);
+			return StaticInvokerDetail<Ret>::Invoke(Env, ToJniArgument(Clazz, Env), MethodID, ToJniArgument(Arg, Env)...);
 		}
 	};
 }

@@ -6,6 +6,9 @@
 namespace hiena
 {
 	struct LocalOwnership_t {} inline constexpr LocalOwnership{};
+
+	template <auto Func>
+	struct JavaInvoker;
 }
 
 namespace hiena::detail
@@ -34,14 +37,14 @@ namespace hiena::detail
 		friend bool operator==(const JavaObjectBase& Lhs, nullptr_t) { return Lhs.Instance == nullptr; }
 		explicit operator bool() const { return Instance != nullptr; }
 
-		friend jobject ToArgument(const JavaObjectBase& Obj) { return Obj.Instance; }
-		friend jclass GetOrInitClass(const JavaObjectBase& Obj, JNIEnv* Env = nullptr) { return Obj.GetOrInitClassInternal(Env); }
+		friend jobject ToJniArgument(const JavaObjectBase& Obj, JNIEnv*) { return Obj.Instance; }
 
 		template <typename T>
 		friend T NewLocalRef(JNIEnv* Env, const T& Other)
 		{
 			static_assert(std::is_base_of_v<JavaObjectBase, T>, "Should be a java type");
-			jobject Instance = Env->NewLocalRef(Other.Instance);
+			using JniType = decltype(ToJniArgument(Other, Env));
+			JniType Instance = (JniType)Env->NewLocalRef(Other.Instance);
 			return T(Instance, LocalOwnership);
 		}
 
@@ -49,21 +52,24 @@ namespace hiena::detail
 		friend T NewGlobalRef(JNIEnv* Env, const T& Other)
 		{
 			static_assert(std::is_base_of_v<JavaObjectBase, T>, "Should be a java type");
-			T New;
-			New.Instance = Env->NewGlobalRef(Other.Instance);
+			using JniType = decltype(ToJniArgument(Other, Env));
+			T New((JniType)Env->NewGlobalRef(Other.Instance));
 			// Class always set since global ref instances may be used in different threads
 			New.Clazz = (jclass)Env->NewGlobalRef(Other.Clazz);
 			New.RefType = JavaRefType::OwningGlobalRef;
 			return New;
 		}
 	protected:
+		template <auto Func>
+		friend struct hiena::JavaInvoker;
+
 		jobject GetInstance() const { return Instance; }
+		jclass GetOrInitClassInternal(JNIEnv* Env = nullptr) const;
 	private:
 		jobject Instance = nullptr;
 		mutable jclass Clazz = nullptr;
 		JavaRefType RefType = JavaRefType::Ignored;
 
-		jclass GetOrInitClassInternal(JNIEnv* Env = nullptr) const;
 		void Release();
 	};
 }

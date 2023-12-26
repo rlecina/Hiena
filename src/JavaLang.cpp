@@ -4,11 +4,11 @@
 
 namespace java::lang
 {
-	Class Object::getClass()
+	Class Object::getClass(JNIEnv* Env)
 	{
 		// Don't invoke the Java method. This is faster and helps complete
 		// initialization if needed
-		return java::lang::Class(GetOrInitClass(*this));
+		return java::lang::Class(GetOrInitClassInternal(Env));
 	}
 
 	ClassLoader Object::getClassLoader()

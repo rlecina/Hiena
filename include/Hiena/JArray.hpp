@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <utility>
 
 #include "Hiena/Hiena.hpp"
@@ -23,13 +24,13 @@ namespace hiena
 			{
 			}
 
-			explicit JArrayBase(ArrayType Instance, LocalOwnership_t Tag, JNIEnv* Env)
+			explicit JArrayBase(ArrayType Instance, LocalOwnership_t Tag, JNIEnv* Env = nullptr)
 				: JavaObjectBase(Instance, Tag)
 				  , Size(Instance ? GetEnv(Env)->GetArrayLength(Instance) : 0)
 			{
 			}
 
-			friend ArrayType ToArgument(const JArrayBase& Obj ) { return Obj.GetInstance(); }
+			friend ArrayType ToJniArgument(const JArrayBase& Obj, JNIEnv*) { return Obj.GetInstance(); }
 
 			jsize GetSize()
 			{
@@ -61,12 +62,10 @@ namespace hiena
 				return Ret;
 			}
 
-			ValueType SetAt(jsize Idx, const T& Obj, JNIEnv* Env = nullptr)
+			void SetAt(jsize Idx, const T& Obj, JNIEnv* Env = nullptr)
 			{
-				ValueType Ret;
-				Ret = GetEnv(Env)->SetObjectArrayElement(this->GetInstance(), Idx, ToArgument(Obj));
+				GetEnv(Env)->SetObjectArrayElement(this->GetInstance(), Idx, ToJniArgument(Obj, Env));
 				//CheckException
-				return Ret;
 			}
 		};
 
@@ -90,9 +89,9 @@ namespace hiena
 			/*CheckException*/ \
 			return Ret; \
 		} \
-		static void ReleaseArrayElements(ArrayType Obj, TYPE* Elems, JNIEnv* Env = nullptr) \
+		static void ReleaseArrayElements(ArrayType Obj, TYPE* Elems, jint Mode, JNIEnv* Env = nullptr) \
 		{ \
-			GetEnv(Env)->Release##PRIMITIVE_TYPE##ArrayElements(Obj, Elems, 0); \
+			GetEnv(Env)->Release##PRIMITIVE_TYPE##ArrayElements(Obj, Elems, Mode); \
 			/*CheckException*/ \
 		} \
 		static void GetArrayRegion(ArrayType Obj, jsize start, jsize len, TYPE* Dst, JNIEnv* Env = nullptr) \
@@ -118,12 +117,15 @@ namespace hiena
 
 #undef HIENA_SETUP_PRIMITIVEARRAY_OPS
 
+		struct Empty_t{};
+
 		template <typename T>
 		class JPrimitiveArray : public JArrayBase<T>
 		{
 			static_assert(IsJniPrimitiveType<T>, "UnsupportedType");
 		public:
 			using ValueType = T;
+			using ArrayType = typename JArrayBase<T>::ArrayType;
 
 			using JArrayBase<T>::JArrayBase;
 
@@ -139,8 +141,10 @@ namespace hiena
 
 			JPrimitiveArray& operator=(JPrimitiveArray&& Rhs)
 			{
+				Release();
 				JArrayBase<ValueType>::operator=(std::move(Rhs));
-				this->StoredRange = std::exchange(Rhs.StoredRange, nullptr);
+				StoredRange = std::exchange(Rhs.StoredRange, nullptr);
+				SharedCount = std::exchange(Rhs.SharedCount, nullptr);
 				return *this;
 			}
 
@@ -148,12 +152,20 @@ namespace hiena
 			{
 				Release();
 				JArrayBase<ValueType>::operator=(Rhs);
+				StoredRange = Rhs.StoredRange;
+				SharedCount = Rhs.SharedCount;
 				return *this;
 			}
 
 			~JPrimitiveArray()
 			{
 				Release();
+			}
+
+			friend ArrayType ToJniArgument(const JPrimitiveArray& Obj, JNIEnv* Env)
+			{
+				Obj.Commit(Env);
+				return Obj.GetInstance();
 			}
 
 			ValueType GetAt(jsize Idx, JNIEnv* Env = nullptr)
@@ -169,22 +181,34 @@ namespace hiena
 			}
 		private:
 			ValueType* StoredRange = nullptr;
-			
+			std::shared_ptr<Empty_t> SharedCount;
+
 			void LoadRange(JNIEnv* Env)
 			{
 				if (StoredRange == nullptr)
 				{
-					StoredRange = PrimitiveArrayOps<ValueType>::GetArrayElements(GetEnv(Env), this->GetInstance());
+					StoredRange = PrimitiveArrayOps<ValueType>::GetArrayElements(this->GetInstance(), Env);
+					SharedCount = std::make_shared<Empty_t>();
 				}
 			}
-			void Release()
+			void Commit(JNIEnv* Env) const
 			{
 				if (StoredRange)
 				{
-					PrimitiveArrayOps<T>::ReleaseArrayElements(GetEnv(), this->GetInstance(), StoredRange);
+					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), StoredRange, JNI_COMMIT, Env);
 					//CheckException?
-					StoredRange = nullptr;
 				}
+			}
+
+			void Release()
+			{
+				if (StoredRange && SharedCount.use_count() == 1)
+				{
+					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), StoredRange, 0, GetEnv());
+					//CheckException?
+				}
+				StoredRange = nullptr;
+				SharedCount = nullptr;
 			}
 		};
 

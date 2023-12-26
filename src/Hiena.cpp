@@ -112,24 +112,22 @@ namespace
 
 	java::lang::Class FindClass(const char* ClassName, JNIEnv* Env)
 	{
-		java::lang::Class Clazz;
-		java::lang::String Name(ClassName);
-		if (gClassLoader)
+		Env = GetEnv(Env);
+
+		if(java::lang::Class Clazz{Env->FindClass(ClassName)}; Clazz)
 		{
-			Clazz = gClassLoader.findClass(ClassName);
+			return Clazz;
 		}
-		else
+		// Need to think about how to report this
+		if(Env->ExceptionCheck())
 		{
-			Env = GetEnv(Env);
-			jclass ClazzFound = Env->FindClass(ClassName);
-			// Need to think about how to report this
-			if(Env->ExceptionCheck())
+			Env->ExceptionClear();
+			java::lang::String Name(ClassName, Env);
+			if (gClassLoader)
 			{
-				Env->ExceptionDescribe();
-				Env->ExceptionClear();
+				return gClassLoader.findClass(Name);
 			}
-			Clazz = java::lang::Class(ClazzFound);
 		}
-		return Clazz;
+		return {};
 	}
 }

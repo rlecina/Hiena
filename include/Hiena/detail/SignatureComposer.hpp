@@ -142,7 +142,7 @@ namespace hiena
 		struct GetJavaClassName
 		{
 			static_assert(HasJavaConversion<ValueType<T>>::Value, "Type does not support Java conversion");
-			static constexpr auto Result = Mangler<ValueType<T>>::GetJavaClassName();
+			static constexpr auto Result = Mangler<ValueType<T>>::GetJavaClassNameImpl();
 		};
 
 		template <typename T>

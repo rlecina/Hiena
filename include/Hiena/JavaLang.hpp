@@ -14,7 +14,7 @@ namespace java::lang
 	public:
 		using JavaObjectBase::JavaObjectBase;
 
-		Class getClass();
+		Class getClass(JNIEnv* Env = nullptr);
 		ClassLoader getClassLoader();
 	};
 
@@ -22,9 +22,13 @@ namespace java::lang
 	{
 	public:
 		using Object::Object;
-	};
+		explicit Class(jclass Instance)
+			:Object((jobject)Instance) {}
+		explicit Class(jclass Instance, hiena::LocalOwnership_t Tag)
+			:Object((jobject)Instance, Tag) {}
 
-	inline jclass ToArgument(const Class& Obj) { return (jclass)ToArgument((Object&)Obj); }
+		friend jclass ToJniArgument(const Class& Obj, JNIEnv* Env) { return (jclass)ToJniArgument((Object&)Obj, Env); }
+	};
 
 	class ClassLoader : public Object
 	{
@@ -38,10 +42,14 @@ namespace java::lang
 	{
 	public:
 		using Object::Object;
+		explicit String(jstring Instance)
+			:Object((jobject)Instance) {}
+		explicit String(jstring Instance, hiena::LocalOwnership_t Tag)
+			:Object((jobject)Instance, Tag) {}
 
 		String(const char* Text, JNIEnv* Env = nullptr);
-	};
 
-	inline jstring ToArgument(const String& Obj) { return (jstring)ToArgument((Object&)Obj); }
+		friend jstring ToJniArgument(const String& Obj, JNIEnv* Env) { return (jstring)ToJniArgument((Object&)Obj, Env); }
+	};
 
 }
