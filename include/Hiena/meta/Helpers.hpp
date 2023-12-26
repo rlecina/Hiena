@@ -4,6 +4,12 @@
 
 namespace hiena
 {
+	struct WildcardType
+	{
+		template <typename T>
+		constexpr operator T() const noexcept;
+	};
+
 	template <typename>
 	constexpr inline bool AlwaysFalse = false;
 

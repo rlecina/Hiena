@@ -2,17 +2,20 @@
 
 #include <jni.h>
 #include <type_traits>
+#include "Hiena/meta/FieldCounter.hpp"
 
 namespace hiena
 {
 	struct LocalOwnership_t {} inline constexpr LocalOwnership{};
 
-	template <auto Func>
+	template <auto>
 	struct JavaInvoker;
 }
 
 namespace hiena::detail
 {
+	class FieldBase;
+
 	enum class JavaRefType
 	{
 		Ignored,
@@ -59,9 +62,12 @@ namespace hiena::detail
 			New.RefType = JavaRefType::OwningGlobalRef;
 			return New;
 		}
+
 	protected:
-		template <auto Func>
+		template <auto>
 		friend struct hiena::JavaInvoker;
+
+		friend class FieldBase;
 
 		jobject GetInstance() const { return Instance; }
 		jclass GetOrInitClassInternal(JNIEnv* Env = nullptr) const;

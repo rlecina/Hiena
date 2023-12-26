@@ -4,6 +4,7 @@
 
 #include "Hiena/detail/JavaObjectBase.hpp"
 #include "Hiena/JArray.hpp"
+#include "Hiena/meta/FieldCounter.hpp"
 #include "Hiena/meta/Helpers.hpp"
 #include "Hiena/utility/CompileTimeString.hpp"
 #include "Hiena/utility/JniTraits.hpp"
@@ -220,7 +221,7 @@ namespace hiena
 	}
 
 	template <typename T>
-	constexpr const char* GetMangledName(T&&)
+	constexpr const char* GetMangledName()
 	{
 		return detail::MangledName<ValueType<T>>::Result.Content;
 	}

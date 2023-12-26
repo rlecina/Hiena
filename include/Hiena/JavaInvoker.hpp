@@ -100,10 +100,9 @@ namespace hiena
 	#undef HIENA_INVOKE_BLOCK
 			}
 		};
-
-		template <typename T>
-		std::enable_if_t<IsJniRegularPrimitiveType<T>,T> ToJniArgument(T Arg, JNIEnv*) { return Arg; }
 }
+	template <typename T>
+	std::enable_if_t<IsJniRegularPrimitiveType<T>,T> ToJniArgument(T Arg, JNIEnv*) { return Arg; }
 
 	template <auto Func>
 	struct JavaInvoker
@@ -119,7 +118,7 @@ namespace hiena
 			using namespace detail;
 			JNIEnv* Env = hiena::GetEnv();
 			constexpr const char* FuncName = GetFuncName<Func>();
-			constexpr const char* FuncMangledName = GetMangledName(Func);
+			constexpr const char* FuncMangledName = GetMangledName<FuncType>();
 			static jmethodID MethodID = Env->GetMethodID(Instance->GetOrInitClassInternal(Env), FuncName, FuncMangledName);
 			CheckException(Env);
 			return InvokerDetail<Ret>::Invoke(Env, ToJniArgument(*Instance, Env), MethodID, ToJniArgument(Arg, Env)...);
@@ -133,7 +132,7 @@ namespace hiena
 			JNIEnv* Env = hiena::GetEnv();
 			constexpr const char* ClassName = GetJavaClassFrom<Func>();
 			constexpr const char* FuncName = GetFuncName<Func>();
-			constexpr const char* FuncMangledName = GetMangledName(Func);
+			constexpr const char* FuncMangledName = GetMangledName<FuncType>();
 			java::lang::Class Clazz = FindClass(ClassName, Env);
 			static jmethodID MethodID = Env->GetStaticMethodID(ToJniArgument(Clazz, Env), FuncName, FuncMangledName);
 			CheckException(Env);
