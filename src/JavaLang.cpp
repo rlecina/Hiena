@@ -21,8 +21,8 @@ namespace java::lang
 		return hiena::JavaInvoker<&ClassLoader::findClass>::Invoke(this, Classname);
 	}
 
-	String::String(const char* Text)
-	: Object(hiena::GetEnv()->NewStringUTF(Text), hiena::LocalOwnership)
+	String::String(const char* Text, JNIEnv* Env)
+	: Object(hiena::GetEnv(Env)->NewStringUTF(Text), hiena::LocalOwnership)
 	{
 	}
 }

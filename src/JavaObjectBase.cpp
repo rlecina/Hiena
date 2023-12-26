@@ -87,10 +87,8 @@ namespace hiena::detail
 		{
 			return nullptr;
 		}
-		if (!Env)
-		{
-			Env = GetEnv();
-		}
+
+		Env = GetEnv(Env);
 
 		Clazz = Env->GetObjectClass(Instance);
 		if(RefType == JavaRefType::OwningLocalRef)

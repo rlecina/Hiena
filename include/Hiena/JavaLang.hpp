@@ -39,7 +39,9 @@ namespace java::lang
 	public:
 		using Object::Object;
 
-		String(const char* Text);
+		String(const char* Text, JNIEnv* Env = nullptr);
 	};
+
+	inline jstring ToArgument(const String& Obj) { return (jstring)ToArgument((Object&)Obj); }
 
 }

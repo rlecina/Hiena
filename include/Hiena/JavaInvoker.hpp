@@ -124,7 +124,6 @@ namespace hiena
 		static Ret StaticInvoke(Args&&... Arg)
 		{
 			JNIEnv* Env = hiena::GetEnv();
-
 			constexpr const char* ClassName = GetJavaClassFrom<Func>();
 			constexpr const char* FuncName = GetFuncName<Func>();
 			constexpr const char* FuncMangledName = GetMangledName(Func);

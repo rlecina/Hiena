@@ -57,7 +57,7 @@ namespace hiena::detail
 			return New;
 		}
 	protected:
-		jobject getInstance() const { return Instance; }
+		jobject GetInstance() const { return Instance; }
 	private:
 		jobject Instance = nullptr;
 		mutable jclass Clazz = nullptr;

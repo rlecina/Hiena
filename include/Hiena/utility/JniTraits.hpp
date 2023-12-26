@@ -37,15 +37,15 @@ namespace hiena
 	namespace detail
 	{
 		template <typename T, bool IsObjectType = IsJniObjectType<T>>
-		struct JniArrayTypeFor
+		struct JniArrayTypeForImpl
 		{
 			static_assert(AlwaysFalse<T>, "Unsupported type for array");
 		};
 
 		template <typename T>
-		struct JniArrayTypeFor<T, true> { using ArrayType = jobjectArray; };
+		struct JniArrayTypeForImpl<T, true> { using ArrayType = jobjectArray; };
 
-#define HIENA_ASSOCIATE_ARRAYTYPE(TYPE)	template <> struct JniArrayTypeFor<TYPE, false> { using ArrayType = TYPE##Array;};
+#define HIENA_ASSOCIATE_ARRAYTYPE(TYPE)	template <> struct JniArrayTypeForImpl<TYPE, false> { using ArrayType = TYPE##Array;};
 		HIENA_ASSOCIATE_ARRAYTYPE(jboolean)
 		HIENA_ASSOCIATE_ARRAYTYPE(jbyte)
 		HIENA_ASSOCIATE_ARRAYTYPE(jchar)
@@ -58,6 +58,6 @@ namespace hiena
 	}
 
 	template <typename T>
-	using JniArrayTypeFor = typename detail::JniArrayTypeFor<T>::ArrayType;
+	using JniArrayTypeFor = typename detail::JniArrayTypeForImpl<T>::ArrayType;
 
 }

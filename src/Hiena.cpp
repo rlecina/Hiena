@@ -89,8 +89,12 @@ namespace
 		return true;
 	}
 
-	JNIEnv* GetEnv()
+	JNIEnv* GetEnv(JNIEnv* Env)
 	{
+		if (Env != nullptr)
+		{
+			return Env;
+		}
 		EnvData Data = EnvData::CreateFromKey();
 		if (!Data.Env)
 		{
@@ -116,10 +120,7 @@ namespace
 		}
 		else
 		{
-			if (!Env)
-			{
-				Env = GetEnv();
-			}
+			Env = GetEnv(Env);
 			jclass ClazzFound = Env->FindClass(ClassName);
 			// Need to think about how to report this
 			if(Env->ExceptionCheck())

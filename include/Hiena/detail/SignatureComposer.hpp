@@ -71,7 +71,7 @@ namespace hiena
 #endif
 
 		template <auto Func>
-		struct GetFuncName
+		struct GetFuncNameImpl
 		{
 			static constexpr auto Result = [] {
 					static_assert(IsFunctionPointer<decltype(Func)> || std::is_member_function_pointer_v<decltype(Func)>, "Unsupported type");
@@ -91,7 +91,7 @@ namespace hiena
 #endif
 
 		template <auto Func>
-		struct GetJavaClassFromFunc
+		struct GetJavaClassFromFuncImpl
 		{
 			static constexpr auto Result = [] {
 				static_assert(IsFunctionPointer<decltype(Func)> || std::is_member_function_pointer_v<decltype(Func)>, "Unsupported type");
@@ -125,7 +125,7 @@ namespace hiena
 				return CompileTimeString<Length+1>(ThisFunction.data() + Start, Length);
 			}
 
-			static consteval auto GetJavaClassName()
+			static consteval auto GetJavaClassNameImpl()
 			{
 				constexpr auto CppType = GetCppTypename();
 				constexpr auto PathLikeSize = ComputeJavaClassLength(CppType);
@@ -134,7 +134,7 @@ namespace hiena
 
 			static consteval auto GetJavaMangledType()
 			{
-				return "L" + GetJavaClassName() + ";";
+				return "L" + GetJavaClassNameImpl() + ";";
 			}
 		};
 
@@ -228,12 +228,12 @@ namespace hiena
 	template <auto Func>
 	constexpr const char* GetFuncName()
 	{
-		return detail::GetFuncName<Func>::Result.Content;
+		return detail::GetFuncNameImpl<Func>::Result.Content;
 	}
 
 	template <auto Func>
 	constexpr const char* GetJavaClassFrom()
 	{
-		return detail::GetJavaClassFromFunc<Func>::Result.Content;
+		return detail::GetJavaClassFromFuncImpl<Func>::Result.Content;
 	}
 }
