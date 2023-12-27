@@ -53,13 +53,13 @@ namespace hiena
 			{
 				case ErrorPolicy::AutoClear:
 					Env->ExceptionClear();
-					break;
+					return true;
 				case ErrorPolicy::AutoClearAndStore:
 					ThreadException = NewGlobalRef(Exception, Env);
 					Env->ExceptionClear();
-					break;
+					return true;
 				case ErrorPolicy::Ignore:
-					break;
+					return false;
 				case ErrorPolicy::UseHandler:
 				{
 					if (GlobalConfig.ExceptionHandler)
@@ -68,13 +68,13 @@ namespace hiena
 						{
 							case HandlerResult::Clear:
 								Env->ExceptionClear();
-								break;
+								return true;
 							case HandlerResult::ClearAndStore:
 								ThreadException = NewGlobalRef(Exception, Env);
 								Env->ExceptionClear();
-								break;
+								return true;
 							case HandlerResult::Ignore:
-								break;
+								return false;
 						}
 					}
 				}
@@ -82,6 +82,7 @@ namespace hiena
 		}
 		return false;
 	}
+
 	java::lang::Throwable GetLastErrorForThread(JNIEnv* Env)
 	{
 		return NewLocalRef(ThreadException, Env);

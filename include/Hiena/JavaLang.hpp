@@ -11,6 +11,7 @@ namespace java::lang
 	class ClassLoader;
 	class Object;
 	class String;
+	class Throwable;
 
 	class Object : public hiena::detail::JavaObjectBase
 	{
@@ -19,12 +20,6 @@ namespace java::lang
 
 		Class getClass(JNIEnv* Env = nullptr);
 		ClassLoader getClassLoader();
-	};
-
-	class Throwable : public Object
-	{
-	public:
-		HIENA_CLASS_CONSTRUCTORS(Throwable, Object, jthrowable)
 	};
 
 	class Class : public Object
@@ -53,5 +48,13 @@ namespace java::lang
 
 	private:
 		const char* Content = nullptr;
+	};
+
+	class Throwable : public Object
+	{
+	public:
+		HIENA_CLASS_CONSTRUCTORS(Throwable, Object, jthrowable)
+
+		String 	getMessage();
 	};
 }

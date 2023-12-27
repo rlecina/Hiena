@@ -132,10 +132,10 @@ namespace
 
 		if(Env->ExceptionCheck())
 		{
+			Env->ExceptionClear();
 			java::lang::String Name(ClassName, Env);
 			if (gClassLoader)
 			{
-				Env->ExceptionClear();
 				java::lang::Class Clazz = gClassLoader.findClass(Name);
 				return (jclass)Env->NewLocalRef(ToJniArgument(Clazz, Env));
 			}

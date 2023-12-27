@@ -48,4 +48,9 @@ namespace java::lang
 		}
 		return Content;
 	}
+
+	String Throwable::getMessage()
+	{
+		return hiena::JavaInvoker<&Throwable::getMessage>::Invoke(this);
+	}
 }
