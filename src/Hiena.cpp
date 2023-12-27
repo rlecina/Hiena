@@ -2,6 +2,7 @@
 
 #include "Hiena/JavaLang.hpp"
 
+#include "Hiena/detail/CheckedJniEnv.hpp"
 #include <pthread.h>
 
 namespace hiena

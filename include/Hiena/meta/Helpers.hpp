@@ -25,4 +25,13 @@ namespace hiena
 
 	template <typename T>
 	constexpr inline bool IsFunctionPointer = std::is_function_v<std::remove_pointer_t<T>>;
+
+	template <typename T>
+	T CreateDefault()
+	{
+		if constexpr(!std::is_same_v<T, void>)
+		{
+			return {};
+		}
+	}
 }

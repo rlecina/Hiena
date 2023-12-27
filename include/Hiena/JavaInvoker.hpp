@@ -16,19 +16,6 @@ namespace hiena
 {
 	namespace detail
 	{
-		template <typename T>
-		T CreateDefault()
-		{
-			if constexpr(std::is_same_v<T, void>)
-			{
-				return;
-			}
-			else
-			{
-				return {};
-			}
-		}
-
 		template <typename Ret>
 		struct InvokerDetail
 		{
@@ -36,7 +23,6 @@ namespace hiena
 			{
 				va_list list;
 				va_start(list, MethodID);
-				ScopeExit OnExit([&]{va_end(list);});
 
 	#define HIENA_INVOKE_BLOCK(Type, Func) \
 				if constexpr (std::is_same_v<Ret, Type>) \
@@ -46,7 +32,17 @@ namespace hiena
 						return CreateDefault<Ret>();\
 					} \
                     ScopeExit OnCheckOnExit([&] { CheckException(Env); }); \
-					return Env->Call##Func##MethodV(Instance, MethodID, list); \
+					if constexpr (std::is_same_v<Ret, void>) \
+					{ \
+						Env->Call##Func##MethodV(Instance, MethodID, list); \
+						va_end(list); \
+					} \
+					else \
+					{ \
+						Ret R =  Env->Call##Func##MethodV(Instance, MethodID, list); \
+						va_end(list); \
+						return R; \
+					} \
 				}
 
 				HIENA_INVOKE_BLOCK(void, Void)
@@ -62,10 +58,11 @@ namespace hiena
 				{
 					if (CheckExceptionFast())
 					{
-						return Ret{};
+						return CreateDefault<Ret>();
 					}
 					jobject Object = Env->CallObjectMethodV(Instance, MethodID, list);
 					CheckException(Env);
+					va_end(list);
 					return Ret((typename Ret::SourceJniType)Object, LocalOwnership);
 				}
 				else
@@ -83,18 +80,27 @@ namespace hiena
 			{
 				va_list list;
 				va_start(list, MethodID);
-				ScopeExit OnExit([&]{va_end(list);});
 
 	#define HIENA_INVOKE_BLOCK(Type, Func) \
-					if constexpr (std::is_same_v<Ret, Type>) \
+				if constexpr (std::is_same_v<Ret, Type>) \
+				{ \
+					if (CheckExceptionFast()) \
 					{ \
-						if (CheckExceptionFast()) \
-						{ \
-							return CreateDefault<Ret>();\
-						} \
-						ScopeExit OnCheckOnExit([&] { CheckException(Env); }); \
-						return Env->CallStatic##Func##MethodV(Clazz, MethodID, list); \
-					}
+						return CreateDefault<Ret>();\
+					} \
+                    ScopeExit OnCheckOnExit([&] { CheckException(Env); }); \
+					if constexpr (std::is_same_v<Ret, void>) \
+					{ \
+						Env->CallStatic##Func##MethodV(Clazz, MethodID, list); \
+						va_end(list); \
+					} \
+					else \
+					{ \
+						Ret R =  Env->CallStatic##Func##MethodV(Clazz, MethodID, list); \
+						va_end(list); \
+						return R; \
+					} \
+				}
 
 				HIENA_INVOKE_BLOCK(void, Void)
 				else HIENA_INVOKE_BLOCK(jboolean, Boolean)
@@ -113,6 +119,7 @@ namespace hiena
 					}
 					jobject Object = Env->CallStaticObjectMethodV(Clazz, MethodID, list);
 					CheckException(Env);
+					va_end(list);
 					return Ret((typename Ret::SourceJniType)Object, LocalOwnership);
 				}
 				else
