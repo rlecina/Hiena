@@ -3,58 +3,20 @@
 #include <memory>
 #include <utility>
 
-#include "Hiena/Hiena.hpp"
-#include "Hiena/detail/JavaObjectBase.hpp"
-#include "Hiena/utility/JniTraits.hpp"
-#include "Hiena/utility/Macros.hpp"
+#include "Hiena/detail/JArrayBase.hpp"
 
 namespace hiena
 {
 	namespace detail
 	{
 		template <typename T>
-		class JArrayBase : public JavaObjectBase
-		{
-		public:
-			using ArrayType = JniArrayTypeFor<T>;
-
-			JArrayBase() {}
-			explicit JArrayBase(ArrayType Instance, JNIEnv* Env = nullptr)
-				: JavaObjectBase(Instance)
-				, Size(Instance ? GetEnv(Env)->GetArrayLength(Instance) : 0)
-			{
-			}
-
-			explicit JArrayBase(ArrayType Instance, LocalOwnership_t Tag, JNIEnv* Env = nullptr)
-				: JavaObjectBase(Instance, Tag)
-				, Size(Instance ? GetEnv(Env)->GetArrayLength(Instance) : 0)
-			{
-			}
-
-			friend ArrayType ToJniArgument(const JArrayBase& Obj, JNIEnv*) { return Obj.GetInstance(); }
-
-			jsize GetSize()
-			{
-				return Size;
-			}
-		protected:
-			jsize Size = 0;
-
-			ArrayType GetInstance() const
-			{
-				return (ArrayType)JavaObjectBase::GetInstance();
-			}
-		};
-
-		template <typename T>
 		class JObjectArray : public JArrayBase<T>
 		{
 			static_assert(IsJniObjectType<T>, "Unsupported type");
 		public:
-			using ValueType = T;
-			using ArrayType = typename JArrayBase<T>::ArrayType;
+			using ValueType = typename JArrayBase<T>::ValueType;
 
-			HIENA_CLASS_CONSTRUCTORS_ARRAY(JObjectArray, JArrayBase<T>, ArrayType)
+			HIENA_CLASS_CONSTRUCTORS_ARRAY(JObjectArray, JArrayBase<T>, typename JArrayBase<T>::SourceJniType)
 
 			ValueType GetAt(jsize Idx, JNIEnv* Env = nullptr)
 			{
@@ -71,73 +33,22 @@ namespace hiena
 			}
 		};
 
-		template <typename>
-		struct PrimitiveArrayOps;
-
-#define HIENA_SETUP_PRIMITIVEARRAY_OPS(TYPE, PRIMITIVE_TYPE) \
-	template <>\
-	struct PrimitiveArrayOps<TYPE> \
-	{ \
-		using ArrayType = JniArrayTypeFor<TYPE>; \
-		static ArrayType NewArray(jsize Size, JNIEnv* Env = nullptr) \
-		{ \
-			ArrayType Ret = GetEnv(Env)->New##PRIMITIVE_TYPE##Array(Size); \
-			/*CheckException*/ \
-			return Ret; \
-		} \
-		static TYPE* GetArrayElements(ArrayType Obj, JNIEnv* Env = nullptr) \
-		{ \
-			TYPE* Ret = GetEnv(Env)->Get##PRIMITIVE_TYPE##ArrayElements(Obj, nullptr); \
-			/*CheckException*/ \
-			return Ret; \
-		} \
-		static void ReleaseArrayElements(ArrayType Obj, TYPE* Elems, jint Mode, JNIEnv* Env = nullptr) \
-		{ \
-			GetEnv(Env)->Release##PRIMITIVE_TYPE##ArrayElements(Obj, Elems, Mode); \
-			/*CheckException*/ \
-		} \
-		static void GetArrayRegion(ArrayType Obj, jsize start, jsize len, TYPE* Dst, JNIEnv* Env = nullptr) \
-		{ \
-			GetEnv(Env)->Get##PRIMITIVE_TYPE##ArrayRegion(Obj, start, len, Dst); \
-			/*CheckException*/ \
-		} \
-		static void SetArrayRegion(ArrayType Obj, jsize start, jsize len, const TYPE* Src, JNIEnv* Env = nullptr) \
-		{ \
-			GetEnv(Env)->Set##PRIMITIVE_TYPE##ArrayRegion(Obj, start, len, Src); \
-			/*CheckException*/ \
-		} \
-	};
-
-		HIENA_SETUP_PRIMITIVEARRAY_OPS(jboolean, Boolean)
-		HIENA_SETUP_PRIMITIVEARRAY_OPS(jbyte, Byte)
-		HIENA_SETUP_PRIMITIVEARRAY_OPS(jchar, Char)
-		HIENA_SETUP_PRIMITIVEARRAY_OPS(jshort, Short)
-		HIENA_SETUP_PRIMITIVEARRAY_OPS(jint, Int)
-		HIENA_SETUP_PRIMITIVEARRAY_OPS(jlong, Long)
-		HIENA_SETUP_PRIMITIVEARRAY_OPS(jfloat, Float)
-		HIENA_SETUP_PRIMITIVEARRAY_OPS(jdouble, Double)
-
-#undef HIENA_SETUP_PRIMITIVEARRAY_OPS
-
-		struct Empty_t{};
-
 		template <typename T>
 		class JPrimitiveArray : public JArrayBase<T>
 		{
 			static_assert(IsJniPrimitiveType<T>, "UnsupportedType");
 		public:
-			using ValueType = T;
-			using ArrayType = typename JArrayBase<T>::ArrayType;
-			using SourceJniType = ArrayType;
+			using ValueType = typename JArrayBase<T>::ValueType;
+			using SourceJniType = typename JArrayBase<T>::SourceJniType;
 
 			JPrimitiveArray() {}
 
-			explicit JPrimitiveArray(ArrayType Instance, JNIEnv* Env = nullptr)
+			explicit JPrimitiveArray(SourceJniType Instance, JNIEnv* Env = nullptr)
 			: JArrayBase<T>(Instance, Env)
 			{
 			}
 
-			JPrimitiveArray(ArrayType Instance, LocalOwnership_t Tag, JNIEnv* Env = nullptr)
+			JPrimitiveArray(SourceJniType Instance, LocalOwnership_t Tag, JNIEnv* Env = nullptr)
 			: JArrayBase<T>(Instance, Tag)
 			{
 			}
@@ -181,7 +92,7 @@ namespace hiena
 				Release();
 			}
 
-			friend ArrayType ToJniArgument(const JPrimitiveArray& Obj, JNIEnv* Env)
+			friend SourceJniType ToJniArgument(const JPrimitiveArray& Obj, JNIEnv* Env)
 			{
 				Obj.Commit(Env);
 				return Obj.GetInstance();
@@ -232,23 +143,8 @@ namespace hiena
 		};
 
 		template <typename T>
-		struct IsJArrayTypeImpl
-		{
-			static inline constexpr bool Value = false;
-		};
-
-		template <template <typename> typename Cont, typename T>
-		struct IsJArrayTypeImpl<Cont<T>>
-		{
-			static inline constexpr bool Value = std::is_base_of_v<JArrayBase<T>, Cont<T>>;
-		};
-
-		template <typename T>
 		using ArrayBaseType = std::conditional_t<IsJniObjectType<T>, JObjectArray<T>, JPrimitiveArray<T>>;
 	}
-
-	template <typename T>
-	inline static constexpr bool IsJArrayType = detail::IsJArrayTypeImpl<T>::Value;
 
 	template <typename T>
 	class JArray : public detail::ArrayBaseType<T>
