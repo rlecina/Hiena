@@ -140,7 +140,7 @@ namespace hiena
 		};
 
 		template <typename T>
-		struct GetJavaClassName
+		struct GetJavaClassNameImpl
 		{
 			static_assert(HasJavaConversion<ValueType<T>>::Value, "Type does not support Java conversion");
 			static constexpr auto Result = Mangler<ValueType<T>>::GetJavaClassNameImpl();
@@ -215,9 +215,9 @@ namespace hiena
 	}
 
 	template <typename T>
-	const char* GetJavaClassName()
+	constexpr const char* GetJavaClassName()
 	{
-		return detail::GetJavaClassName<T>::Result.Content;
+		return detail::GetJavaClassNameImpl<T>::Result.Content;
 	}
 
 	template <typename T>

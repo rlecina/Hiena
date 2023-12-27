@@ -84,7 +84,7 @@ namespace
 		{
 			return false;
 		}
-		gClassLoader = NewGlobalRef(Env, gClassLoader);
+		gClassLoader = NewGlobalRef(gClassLoader, Env);
 
 		return true;
 	}
@@ -125,7 +125,8 @@ namespace
 			java::lang::String Name(ClassName, Env);
 			if (gClassLoader)
 			{
-				return ToJniArgument(gClassLoader.findClass(Name), Env);
+				java::lang::Class Clazz = gClassLoader.findClass(Name);
+				return (jclass)Env->NewLocalRef(ToJniArgument(Clazz, Env));
 			}
 		}
 		return nullptr;
@@ -133,6 +134,6 @@ namespace
 
 	java::lang::Class FindClass(const char* ClassName, JNIEnv* Env)
 	{
-		return java::lang::Class(LowLevelFindClass(ClassName, Env));
+		return java::lang::Class(LowLevelFindClass(ClassName, Env), LocalOwnership);
 	}
 }

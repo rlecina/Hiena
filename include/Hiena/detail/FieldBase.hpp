@@ -13,43 +13,15 @@ namespace hiena::detail
 	class FieldBase
 	{
 	public:
-		FieldBase() = default;
-		FieldBase(const FieldBase& Other)
-		:FieldBase()
-		{
-			*this = Other;
-		}
-		FieldBase(FieldBase&& Other)
-		:FieldBase()
-		{
-			*this = std::move(Other);
-		}
+		FieldBase(){}
+		FieldBase(const FieldBase& Other) {}
+		FieldBase(FieldBase&& Other) { }
 		FieldBase& operator=(const FieldBase& Other)
 		{
-			if(!Owner)
-			{
-				Owner = Other.Owner;
-				FieldName = Other.FieldName;
-				FieldId = Other.FieldId;
-			}
-			else
-			{
-				TryCopyFieldId(Other);
-			}
 			return *this;
 		}
 		FieldBase& operator=(FieldBase&& Other)
 		{
-			if(!Owner)
-			{
-				Owner = std::exchange(Other.Owner, nullptr);
-				FieldName = std::exchange(Other.FieldName, nullptr);
-				FieldId = std::exchange(Other.FieldId, nullptr);
-			}
-			else
-			{
-				TryCopyFieldId(Other);
-			}
 			return *this;
 		}
 
@@ -74,6 +46,15 @@ namespace hiena::detail
 			}
 			return LowLevelFindClass(OwnerClassName, Env);
 		}
+
+		void ReleaseStaticOwnerClass(jclass Clazz, JNIEnv* Env)
+		{
+			if (!Owner)
+			{
+				Env->DeleteLocalRef(Clazz);
+			}
+		}
+
 
 		jfieldID GetFieldId(const char* Signature, JNIEnv* Env)
 		{
@@ -106,7 +87,7 @@ namespace hiena::detail
 				{
 					JNIEnv* Env = GetEnv();
 					jclass OwnerClass = Owner->GetOrInitClassInternal(Env);
-					jclass OtherClass = Owner->GetOrInitClassInternal(Env);
+					jclass OtherClass = Other.Owner->GetOrInitClassInternal(Env);
 					if (OwnerClass == OtherClass ||
 						Env->IsSameObject(OwnerClass,OtherClass))
 					{
@@ -116,9 +97,11 @@ namespace hiena::detail
 			}
 		}
 	private:
-		JavaObjectBase* Owner = nullptr;
-		const char* FieldName = nullptr;
-		const char* OwnerClassName = nullptr;
+		// Those uninitialized fields are left that way to be initialized using Setup during construction
+		// After that they are not modified in any way
+		JavaObjectBase* Owner;
+		const char* FieldName;
+		const char* OwnerClassName;
 		jfieldID FieldId = 0;
 	};
 

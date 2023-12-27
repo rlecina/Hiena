@@ -16,7 +16,7 @@ namespace hiena::detail
 	{
 		if (Instance)
 		{
-			RefType = JavaRefType::OwningLocalRef;
+			InstanceRefType = JavaRefType::OwningLocalRef;
 		}
 	}
 
@@ -34,40 +34,63 @@ namespace hiena::detail
 	{
 		Release();
 		Instance = std::exchange(Other.Instance, nullptr);
+		InstanceRefType = std::exchange(Other.InstanceRefType, JavaRefType::Ignored);
 		Clazz = std::exchange(Other.Clazz, nullptr);
-		RefType = std::exchange(Other.RefType, JavaRefType::Ignored);
+		ClazzRefType = std::exchange(Other.ClazzRefType, JavaRefType::Ignored);
 		return *this;
 	}
 
 	JavaObjectBase& JavaObjectBase::operator=(const JavaObjectBase& Other)
 	{
 		Release();
+		JNIEnv* Env = nullptr;
 		if (Other.Instance)
 		{
-			switch (Other.RefType)
+			switch (Other.InstanceRefType)
 			{
 				case JavaRefType::Ignored:
 				{
 					Instance = Other.Instance;
+					break;
+				}
+				case JavaRefType::OwningLocalRef:
+				{
+					Env = GetEnv(Env);
+					Instance = Env->NewLocalRef(Other.Instance);
+					break;
+				}
+				case JavaRefType::OwningGlobalRef:
+				{
+					Env = GetEnv(Env);
+					Instance = Env->NewGlobalRef(Other.Instance);
+					break;
+				}
+			}
+			InstanceRefType = Other.InstanceRefType;
+		}
+		if (Other.Clazz)
+		{
+			switch (Other.ClazzRefType)
+			{
+				case JavaRefType::Ignored:
+				{
 					Clazz = Other.Clazz;
 					break;
 				}
 				case JavaRefType::OwningLocalRef:
 				{
-					JNIEnv* Env = GetEnv();
-					Instance = Env->NewLocalRef(Other.Instance);
+					Env = GetEnv(Env);
 					Clazz = (jclass)Env->NewLocalRef(Other.Clazz);
 					break;
 				}
 				case JavaRefType::OwningGlobalRef:
 				{
-					JNIEnv* Env = GetEnv();
-					Instance = Env->NewGlobalRef(Other.Instance);
+					Env = GetEnv(Env);
 					Clazz = (jclass)Env->NewGlobalRef(Other.Clazz);
 					break;
 				}
 			}
-			RefType = Other.RefType;
+			ClazzRefType = Other.ClazzRefType;
 		}
 		return *this;
 	}
@@ -91,9 +114,10 @@ namespace hiena::detail
 		Env = GetEnv(Env);
 
 		Clazz = Env->GetObjectClass(Instance);
-		if(RefType == JavaRefType::OwningLocalRef)
+		if(InstanceRefType == JavaRefType::OwningLocalRef)
 		{
 			Clazz = (jclass)Env->NewLocalRef(Clazz);
+			ClazzRefType = JavaRefType::OwningLocalRef;
 		}
 		return Clazz;
 	}
@@ -104,19 +128,35 @@ namespace hiena::detail
 		{
 			return;
 		}
-		switch (RefType)
+		JNIEnv* Env = nullptr;
+		switch (InstanceRefType)
 		{
 			case JavaRefType::OwningLocalRef:
 			{
-				JNIEnv* Env = GetEnv();
+				Env = GetEnv(Env);
 				Env->DeleteLocalRef(Instance);
+				break;
+			}
+			case JavaRefType::OwningGlobalRef:
+			{
+				Env = GetEnv(Env);
+				Env->DeleteGlobalRef(Instance);
+				break;
+			}
+			default:
+				break;
+		}
+		switch (ClazzRefType)
+		{
+			case JavaRefType::OwningLocalRef:
+			{
+				Env = GetEnv(Env);
 				Env->DeleteLocalRef(Clazz);
 				break;
 			}
 			case JavaRefType::OwningGlobalRef:
 			{
-				JNIEnv* Env = GetEnv();
-				Env->DeleteGlobalRef(Instance);
+				Env = GetEnv(Env);
 				Env->DeleteGlobalRef(Clazz);
 				break;
 			}
@@ -124,7 +164,8 @@ namespace hiena::detail
 				break;
 		}
 		Instance = nullptr;
+		InstanceRefType = JavaRefType::Ignored;
 		Clazz = nullptr;
-		RefType = JavaRefType::Ignored;
+		ClazzRefType = JavaRefType::Ignored;
 	}
 }

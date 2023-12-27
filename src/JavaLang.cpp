@@ -35,18 +35,17 @@ namespace java::lang
 		}
 	}
 
-	std::string_view ToCppString(const String& Obj, JNIEnv* Env)
+	std::string_view String::ToCppString(JNIEnv* Env)
 	{
-		auto &MutableObj = const_cast<String&>(Obj);
-
-		if (Obj.Content)
+		if (Content)
 		{
-			return Obj.Content;
+			return Content;
 		}
-		else if (Obj)
+		else
 		{
-			MutableObj.Content = Env->GetStringUTFChars(ToJniArgument(Obj, Env), nullptr);
+			Env = hiena::GetEnv(Env);
+			Content = Env->GetStringUTFChars(ToJniArgument(*this, Env), nullptr);
 		}
-		return MutableObj.Content;
+		return Content;
 	}
 }

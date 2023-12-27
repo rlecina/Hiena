@@ -12,23 +12,20 @@ namespace hiena
 	template <typename T, typename F>
 	F InitFields(T* Owner, F& Fields)
 	{
-		static_assert(std::is_base_of_v<detail::JavaObjectBase, T>, "Invalid Field owner");
-		F InitializedFields;
-		auto Tuple = ToTuple(InitializedFields);
+		static_assert(IsJniObjectType<T>, "Invalid Field owner");
+		auto Tuple = ToTuple(Fields);
 		auto Names = GetFieldNames<F>();
 		IndexedTupleFor(Tuple, [&](size_t Idx, auto& Field)
 			{
 				Field.Setup(Owner, GetJavaClassName<T>(), Names[Idx]);
 			});
-		return InitializedFields;
+		return {};
 	}
 
 	template <typename T>
 	class Field: public detail::FieldBase
 	{
 	 public:
-		Field() = default;
-
 		Field& operator=(const T& Value)
 		{
 			Set(Value);
@@ -53,7 +50,14 @@ namespace hiena
 			jfieldID FieldID = GetFieldId(GetMangledName<T>(), Env);
 			auto ret = FieldOps<JniType>::GetField(GetOwner(), FieldID, Env);
 			// CheckException
-			return T(ret);
+			if constexpr(IsJniObjectType<T>)
+			{
+				return T((typename T::SourceJniType)ret, LocalOwnership);
+			}
+			else
+			{
+				return T(ret);
+			}
 		}
 
 		void Set(const T& Value, JNIEnv* Env = nullptr)
@@ -86,8 +90,6 @@ namespace hiena
 	class StaticField: public detail::FieldBase
 	{
 	public:
-		StaticField() = default;
-
 		StaticField& operator=(const T& Value)
 		{
 			Set(Value);
@@ -113,8 +115,16 @@ namespace hiena
 			jclass Clazz = GetStaticOwnerClass(Env);
 			jfieldID FieldID = GetStaticFieldId(Clazz, GetMangledName<T>(), Env);
 			auto ret = FieldOps<JniType>::GetStaticField(Clazz, FieldID, Env);
+			ReleaseStaticOwnerClass(Clazz, Env);
 			// CheckException
-			return T(ret);
+			if constexpr(IsJniObjectType<T>)
+			{
+				return T((typename T::SourceJniType)ret, LocalOwnership);
+			}
+			else
+			{
+				return T(ret);
+			}
 		}
 
 		void Set(const T& Value, JNIEnv* Env = nullptr)
@@ -126,6 +136,7 @@ namespace hiena
 			jfieldID FieldID = GetStaticFieldId(Clazz, GetMangledName<T>(), Env);
 			FieldOps<JniType>::SetStaticField(Clazz, FieldID, ToJniArgument(Value, Env), Env);
 			// CheckException
+			ReleaseStaticOwnerClass(Clazz, Env);
 		}
 
 		void Set(T&& Value, JNIEnv* Env = nullptr)

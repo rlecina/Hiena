@@ -1,6 +1,9 @@
 #pragma once
 
+#include <string_view>
+
 #include "Hiena/JArray.hpp"
+#include "Hiena/utility/Macros.hpp"
 
 namespace java::lang
 {
@@ -12,7 +15,7 @@ namespace java::lang
 	class Object : public hiena::detail::JavaObjectBase
 	{
 	public:
-		using JavaObjectBase::JavaObjectBase;
+		HIENA_CLASS_CONSTRUCTORS(Object, JavaObjectBase, jobject)
 
 		Class getClass(JNIEnv* Env = nullptr);
 		ClassLoader getClassLoader();
@@ -21,11 +24,7 @@ namespace java::lang
 	class Class : public Object
 	{
 	public:
-		using Object::Object;
-		explicit Class(jclass Instance)
-			:Object((jobject)Instance) {}
-		explicit Class(jclass Instance, hiena::LocalOwnership_t Tag)
-			:Object((jobject)Instance, Tag) {}
+		HIENA_CLASS_CONSTRUCTORS(Class, Object, jclass)
 
 		friend jclass ToJniArgument(const Class& Obj, JNIEnv* Env) { return (jclass)ToJniArgument((Object&)Obj, Env); }
 	};
@@ -33,7 +32,7 @@ namespace java::lang
 	class ClassLoader : public Object
 	{
 	public:
-		using Object::Object;
+		HIENA_CLASS_CONSTRUCTORS(ClassLoader, Object, jobject)
 
 		Class findClass(String Classname);
 	};
@@ -41,18 +40,14 @@ namespace java::lang
 	class String : public Object
 	{
 	public:
-		using Object::Object;
-		explicit String(jstring Instance)
-			:Object((jobject)Instance) {}
-		explicit String(jstring Instance, hiena::LocalOwnership_t Tag)
-			:Object((jobject)Instance, Tag) {}
+		HIENA_CLASS_CONSTRUCTORS(String, Object, jstring)
 
 		String(const char* Text, JNIEnv* Env = nullptr);
 		~String();
 
-		friend std::string_view ToCppString(const String& Obj, JNIEnv* Env);
-
+		std::string_view ToCppString(JNIEnv* Env = nullptr);
 		friend jstring ToJniArgument(const String& Obj, JNIEnv* Env) { return (jstring)ToJniArgument((Object&)Obj, Env); }
+
 	private:
 		const char* Content = nullptr;
 	};

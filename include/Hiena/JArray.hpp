@@ -6,6 +6,7 @@
 #include "Hiena/Hiena.hpp"
 #include "Hiena/detail/JavaObjectBase.hpp"
 #include "Hiena/utility/JniTraits.hpp"
+#include "Hiena/utility/Macros.hpp"
 
 namespace hiena
 {
@@ -17,7 +18,7 @@ namespace hiena
 		public:
 			using ArrayType = JniArrayTypeFor<T>;
 
-			JArrayBase() = default;
+			JArrayBase() {}
 			explicit JArrayBase(ArrayType Instance, JNIEnv* Env = nullptr)
 				: JavaObjectBase(Instance)
 				, Size(Instance ? GetEnv(Env)->GetArrayLength(Instance) : 0)
@@ -26,7 +27,7 @@ namespace hiena
 
 			explicit JArrayBase(ArrayType Instance, LocalOwnership_t Tag, JNIEnv* Env = nullptr)
 				: JavaObjectBase(Instance, Tag)
-				  , Size(Instance ? GetEnv(Env)->GetArrayLength(Instance) : 0)
+				, Size(Instance ? GetEnv(Env)->GetArrayLength(Instance) : 0)
 			{
 			}
 
@@ -51,8 +52,9 @@ namespace hiena
 			static_assert(IsJniObjectType<T>, "Unsupported type");
 		public:
 			using ValueType = T;
+			using ArrayType = typename JArrayBase<T>::ArrayType;
 
-			using JArrayBase<T>::JArrayBase;
+			HIENA_CLASS_CONSTRUCTORS_ARRAY(JObjectArray, JArrayBase<T>, ArrayType)
 
 			ValueType GetAt(jsize Idx, JNIEnv* Env = nullptr)
 			{
@@ -126,34 +128,51 @@ namespace hiena
 		public:
 			using ValueType = T;
 			using ArrayType = typename JArrayBase<T>::ArrayType;
+			using SourceJniType = ArrayType;
 
-			using JArrayBase<T>::JArrayBase;
+			JPrimitiveArray() {}
 
-			explicit JPrimitiveArray(const JPrimitiveArray& Other)
+			explicit JPrimitiveArray(ArrayType Instance, JNIEnv* Env = nullptr)
+			: JArrayBase<T>(Instance, Env)
+			{
+			}
+
+			JPrimitiveArray(ArrayType Instance, LocalOwnership_t Tag, JNIEnv* Env = nullptr)
+			: JArrayBase<T>(Instance, Tag)
+			{
+			}
+
+			JPrimitiveArray(const JPrimitiveArray& Other)
 			{
 				*this = Other;
 			}
 
-			explicit JPrimitiveArray(JPrimitiveArray&& Other)
+			JPrimitiveArray(JPrimitiveArray&& Other)
 			{
 				*this = std::move(Other);
 			}
 
 			JPrimitiveArray& operator=(JPrimitiveArray&& Rhs)
 			{
-				Release();
-				JArrayBase<ValueType>::operator=(std::move(Rhs));
-				StoredRange = std::exchange(Rhs.StoredRange, nullptr);
-				SharedCount = std::exchange(Rhs.SharedCount, nullptr);
+				if (this != &Rhs)
+				{
+					Release();
+					JArrayBase<ValueType>::operator=(std::move(Rhs));
+					StoredRange = std::exchange(Rhs.StoredRange, nullptr);
+					SharedCount = std::exchange(Rhs.SharedCount, nullptr);
+				}
 				return *this;
 			}
 
 			JPrimitiveArray& operator=(const JPrimitiveArray& Rhs)
 			{
-				Release();
-				JArrayBase<ValueType>::operator=(Rhs);
-				StoredRange = Rhs.StoredRange;
-				SharedCount = Rhs.SharedCount;
+				if (this != &Rhs)
+				{
+					Release();
+					JArrayBase<ValueType>::operator=(Rhs);
+					StoredRange = Rhs.StoredRange;
+					SharedCount = Rhs.SharedCount;
+				}
 				return *this;
 			}
 
@@ -213,8 +232,23 @@ namespace hiena
 		};
 
 		template <typename T>
+		struct IsJArrayTypeImpl
+		{
+			static inline constexpr bool Value = false;
+		};
+
+		template <template <typename> typename Cont, typename T>
+		struct IsJArrayTypeImpl<Cont<T>>
+		{
+			static inline constexpr bool Value = std::is_base_of_v<JArrayBase<T>, Cont<T>>;
+		};
+
+		template <typename T>
 		using ArrayBaseType = std::conditional_t<IsJniObjectType<T>, JObjectArray<T>, JPrimitiveArray<T>>;
 	}
+
+	template <typename T>
+	inline static constexpr bool IsJArrayType = detail::IsJArrayTypeImpl<T>::Value;
 
 	template <typename T>
 	class JArray : public detail::ArrayBaseType<T>

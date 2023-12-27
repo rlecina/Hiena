@@ -6,6 +6,7 @@
 
 namespace hiena
 {
+	struct CreateNew_t {} inline constexpr CreateNew{};
 	struct LocalOwnership_t {} inline constexpr LocalOwnership{};
 
 	template <auto>
@@ -28,9 +29,9 @@ namespace hiena::detail
 	public:
 		JavaObjectBase() = default;
 		explicit JavaObjectBase(jobject Instance);
-		explicit JavaObjectBase(jobject Instance, LocalOwnership_t);
-		explicit JavaObjectBase(const JavaObjectBase& Other);
-		explicit JavaObjectBase(JavaObjectBase&& JavaObjectBase);
+		JavaObjectBase(jobject Instance, LocalOwnership_t);
+		JavaObjectBase(const JavaObjectBase& Other);
+		JavaObjectBase(JavaObjectBase&& JavaObjectBase);
 		JavaObjectBase& operator=(JavaObjectBase&& Rhs);
 		JavaObjectBase& operator=(const JavaObjectBase& Rhs);
 		~JavaObjectBase();
@@ -43,7 +44,7 @@ namespace hiena::detail
 		friend jobject ToJniArgument(const JavaObjectBase& Obj, JNIEnv*) { return Obj.Instance; }
 
 		template <typename T>
-		friend T NewLocalRef(JNIEnv* Env, const T& Other)
+		friend T NewLocalRef(const T& Other, JNIEnv* Env )
 		{
 			static_assert(std::is_base_of_v<JavaObjectBase, T>, "Should be a java type");
 			using JniType = decltype(ToJniArgument(Other, Env));
@@ -52,14 +53,15 @@ namespace hiena::detail
 		}
 
 		template <typename T>
-		friend T NewGlobalRef(JNIEnv* Env, const T& Other)
+		friend T NewGlobalRef(const T& Other, JNIEnv* Env)
 		{
 			static_assert(std::is_base_of_v<JavaObjectBase, T>, "Should be a java type");
 			using JniType = decltype(ToJniArgument(Other, Env));
 			T New((JniType)Env->NewGlobalRef(Other.Instance));
+			New.InstanceRefType = JavaRefType::OwningGlobalRef;
 			// Class always set since global ref instances may be used in different threads
 			New.Clazz = (jclass)Env->NewGlobalRef(Other.Clazz);
-			New.RefType = JavaRefType::OwningGlobalRef;
+			New.ClazzRefType = JavaRefType::OwningGlobalRef;
 			return New;
 		}
 
@@ -74,7 +76,8 @@ namespace hiena::detail
 	private:
 		jobject Instance = nullptr;
 		mutable jclass Clazz = nullptr;
-		JavaRefType RefType = JavaRefType::Ignored;
+		JavaRefType InstanceRefType = JavaRefType::Ignored;
+		mutable JavaRefType ClazzRefType = JavaRefType::Ignored;
 
 		void Release();
 	};

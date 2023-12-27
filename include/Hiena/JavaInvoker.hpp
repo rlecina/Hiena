@@ -3,6 +3,7 @@
 #include <jni.h>
 #include <type_traits>
 
+#include "Hiena/JArray.hpp"
 #include "Hiena/detail/JavaObjectBase.hpp"
 #include "Hiena/detail/SignatureComposer.hpp"
 #include "Hiena/meta/FuncSig.hpp"
@@ -48,11 +49,11 @@ namespace hiena
 				else HIENA_INVOKE_BLOCK(jlong, Long)
 				else HIENA_INVOKE_BLOCK(jfloat, Float)
 				else HIENA_INVOKE_BLOCK(jdouble, Double)
-				else if constexpr (std::is_base_of_v<detail::JavaObjectBase, Ret>)
+				else if constexpr (IsJniObjectType<Ret>)
 				{
 					jobject Object = Env->CallObjectMethodV(Instance, MethodID, list);
 					CheckException(Env);
-					return Ret(Object);
+					return Ret((typename Ret::SourceJniType)Object, LocalOwnership);
 				}
 				else
 				{
@@ -87,11 +88,11 @@ namespace hiena
 				else HIENA_INVOKE_BLOCK(jlong, Long)
 				else HIENA_INVOKE_BLOCK(jfloat, Float)
 				else HIENA_INVOKE_BLOCK(jdouble, Double)
-				else if constexpr (std::is_base_of_v<detail::JavaObjectBase, Ret>)
+				else if constexpr (IsJniObjectType<Ret>)
 				{
 					jobject Object = Env->CallStaticObjectMethodV(Clazz, MethodID, list);
 					CheckException(Env);
-					return Ret(Object);
+					return Ret((typename Ret::SourceJniType)Object, LocalOwnership);
 				}
 				else
 				{
@@ -136,7 +137,59 @@ namespace hiena
 			jclass Clazz = LowLevelFindClass(ClassName, Env);
 			static jmethodID MethodID = Env->GetStaticMethodID(Clazz, FuncName, FuncMangledName);
 			CheckException(Env);
-			return StaticInvokerDetail<Ret>::Invoke(Env, Clazz, MethodID, ToJniArgument(Arg, Env)...);
+			Ret R = StaticInvokerDetail<Ret>::Invoke(Env, Clazz, MethodID, ToJniArgument(Arg, Env)...);
+			Env->DeleteLocalRef(Clazz);
+			return R;
 		}
 	};
+
+	template <typename R, typename... Args>
+	R NewObject(Args&&... Arg)
+	{
+		static_assert(IsJniObjectType<R>, "Should be an object representation");
+		static_assert(std::is_same_v<R, hiena::ValueType<R>>, "Only value types supported as return type");
+
+		using namespace detail;
+		JNIEnv* Env = hiena::GetEnv();
+		constexpr const char* ClassName = GetJavaClassName<R>();
+		constexpr const char* FuncName = "<init>";
+		using FuncType = void(*)(Args&&...);
+		constexpr const char* FuncMangledName = GetMangledName<FuncType>();
+		jclass Clazz = LowLevelFindClass(ClassName, Env);
+		static jmethodID MethodID = Env->GetMethodID(Clazz, FuncName, FuncMangledName);
+		CheckException(Env);
+		jobject Ret = Env->NewObject(Clazz, MethodID, ToJniArgument(Arg, Env)...);
+		CheckException(Env);
+		Env->DeleteLocalRef(Clazz);
+		return R(Ret, LocalOwnership);
+	}
+
+	template <typename Ret>
+	Ret NewPrimitiveArray(jsize Size, JNIEnv* Env = nullptr)
+	{
+		using namespace detail;
+		static_assert(IsJArrayType<Ret>, "Should be an array");
+		static_assert(IsJniPrimitiveType<typename Ret::ValueType>, "Should be a primitive type");
+
+		Env = hiena::GetEnv();
+		auto R = detail::PrimitiveArrayOps<typename Ret::ValueType>::NewArray(Size, Env);
+		CheckException(Env);
+		return Ret((typename Ret::SourceJniType)R, LocalOwnership);
+	}
+
+	template <typename Ret>
+	Ret NewObjectArray(jsize Size, typename Ret::ValueType Init = {}, JNIEnv* Env = nullptr)
+	{
+		using namespace detail;
+		static_assert(IsJArrayType<Ret>, "Should be an array");
+		static_assert(!IsJniPrimitiveType<typename Ret::ValueType>, "Should be a primitive type");
+
+		Env = hiena::GetEnv();
+		constexpr const char* ClassName = GetJavaClassName<typename Ret::ValueType>();
+		jclass Clazz = LowLevelFindClass(ClassName, Env);
+		auto R = Env->NewObjectArray(Size, Clazz, ToJniArgument(Init, Env));
+		CheckException(Env);
+		Env->DeleteLocalRef(Clazz);
+		return Ret((typename Ret::SourceJniType)R, LocalOwnership);
+	}
 }
