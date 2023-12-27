@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Hiena/CheckException.hpp"
 #include "Hiena/detail/JavaObjectBase.hpp"
 
 namespace hiena::detail
@@ -62,9 +63,17 @@ namespace hiena::detail
 			{
 				return FieldId;
 			}
+			if (CheckExceptionFast())
+			{
+				return {};
+			}
+			Env = GetEnv(Env);
 			jclass Clazz = Owner->GetOrInitClassInternal(Env);
 			FieldId = Env->GetFieldID(Clazz, FieldName, Signature);
-			// CheckException
+			if (CheckException(Env))
+			{
+				return {};
+			}
 			return FieldId;
 		}
 
@@ -74,8 +83,16 @@ namespace hiena::detail
 			{
 				return FieldId;
 			}
+			if (CheckExceptionFast())
+			{
+				return {};
+			}
+			Env = GetEnv(Env);
 			FieldId = Env->GetStaticFieldID(Clazz, FieldName, Signature);
-			// CheckException
+			if (CheckException(Env))
+			{
+				return {};
+			}
 			return FieldId;
 		}
 
@@ -111,26 +128,46 @@ namespace hiena::detail
 	{ \
 		static auto GetField(jobject Obj, jfieldID fieldId, JNIEnv* Env = nullptr) \
 		{ \
-			auto Ret = GetEnv(Env)->Get##PRIMITIVE_TYPE##Field(Obj, fieldId); \
-			/*CheckException*/ \
+			if (CheckExceptionFast()) \
+			{ \
+				return CreateDefault<TYPE>(); \
+			} \
+			Env = GetEnv(Env); \
+			auto Ret = Env->Get##PRIMITIVE_TYPE##Field(Obj, fieldId); \
+			CheckException(Env); \
 			return Ret; \
 		} \
 		static auto GetStaticField(jclass Clazz, jfieldID fieldId, JNIEnv* Env = nullptr) \
 		{ \
-			auto Ret = GetEnv(Env)->GetStatic##PRIMITIVE_TYPE##Field(Clazz, fieldId); \
-			/*CheckException*/ \
+			if (CheckExceptionFast()) \
+			{ \
+				return CreateDefault<TYPE>(); \
+			} \
+			Env = GetEnv(Env); \
+			auto Ret = Env->GetStatic##PRIMITIVE_TYPE##Field(Clazz, fieldId); \
+			CheckException(Env); \
 			return Ret; \
 		} \
 		static void SetField(jobject Obj, jfieldID fieldId, TYPE Value, JNIEnv* Env = nullptr) \
 		{ \
-			GetEnv(Env)->Set##PRIMITIVE_TYPE##Field(Obj, fieldId, Value); \
-			/*CheckException*/ \
+			if (CheckExceptionFast()) \
+			{ \
+				return; \
+			} \
+			Env = GetEnv(Env); \
+			Env->Set##PRIMITIVE_TYPE##Field(Obj, fieldId, Value); \
+			CheckException(Env); \
 			return; \
 		} \
 		static void SetStaticField(jclass Clazz, jfieldID fieldId, TYPE Value, JNIEnv* Env = nullptr) \
 		{ \
-			GetEnv(Env)->SetStatic##PRIMITIVE_TYPE##Field(Clazz, fieldId, Value); \
-			/*CheckException*/ \
+			if (CheckExceptionFast()) \
+			{ \
+				return; \
+			} \
+			Env = GetEnv(Env); \
+			Env->SetStatic##PRIMITIVE_TYPE##Field(Clazz, fieldId, Value); \
+			CheckException(Env); \
 			return; \
 		} \
 	};

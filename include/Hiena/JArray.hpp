@@ -22,15 +22,25 @@ namespace hiena
 			ValueType GetAt(jsize Idx, JNIEnv* Env = nullptr)
 			{
 				ValueType Ret;
-				Ret = GetEnv(Env)->GetObjectArrayElement(this->GetInstance(),Idx);
-				//CheckException
+				Env = GetEnv(Env);
+				if (CheckExceptionFast())
+				{
+					return {};
+				}
+				Ret = Env->GetObjectArrayElement(this->GetInstance(),Idx);
+				CheckException(Env);
 				return Ret;
 			}
 
 			void SetAt(jsize Idx, const T& Obj, JNIEnv* Env = nullptr)
 			{
+				Env = GetEnv(Env);
+				if (CheckExceptionFast())
+				{
+					return;
+				}
 				GetEnv(Env)->SetObjectArrayElement(this->GetInstance(), Idx, ToJniArgument(Obj, Env));
-				//CheckException
+				CheckException(Env);
 			}
 		};
 
@@ -127,7 +137,6 @@ namespace hiena
 				if (StoredRange)
 				{
 					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), StoredRange, JNI_COMMIT, Env);
-					//CheckException?
 				}
 			}
 
@@ -136,7 +145,6 @@ namespace hiena
 				if (StoredRange && SharedCount.use_count() == 1)
 				{
 					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), StoredRange, 0, GetEnv());
-					//CheckException?
 				}
 				StoredRange = nullptr;
 				SharedCount = nullptr;

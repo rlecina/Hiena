@@ -3,6 +3,7 @@
 #include <jni.h>
 #include <type_traits>
 
+#include "Hiena/CheckException.hpp"
 #include "Hiena/JArray.hpp"
 #include "Hiena/detail/JavaObjectBase.hpp"
 #include "Hiena/detail/SignatureComposer.hpp"
@@ -15,13 +16,16 @@ namespace hiena
 {
 	namespace detail
 	{
-		inline void CheckException(JNIEnv* Env)
+		template <typename T>
+		T CreateDefault()
 		{
-			// Need to think about how to report this to caller
-			if(Env->ExceptionCheck())
+			if constexpr(std::is_same_v<T, void>)
 			{
-				Env->ExceptionDescribe();
-				Env->ExceptionClear();
+				return;
+			}
+			else
+			{
+				return {};
 			}
 		}
 
@@ -35,8 +39,12 @@ namespace hiena
 				ScopeExit OnExit([&]{va_end(list);});
 
 	#define HIENA_INVOKE_BLOCK(Type, Func) \
-				if constexpr (std::is_same_v<Ret, void>) \
+				if constexpr (std::is_same_v<Ret, Type>) \
 				{ \
+					if (CheckExceptionFast()) \
+					{ \
+						return CreateDefault<Ret>();\
+					} \
                     ScopeExit OnCheckOnExit([&] { CheckException(Env); }); \
 					return Env->Call##Func##MethodV(Instance, MethodID, list); \
 				}
@@ -52,6 +60,10 @@ namespace hiena
 				else HIENA_INVOKE_BLOCK(jdouble, Double)
 				else if constexpr (IsJniObjectType<Ret>)
 				{
+					if (CheckExceptionFast())
+					{
+						return Ret{};
+					}
 					jobject Object = Env->CallObjectMethodV(Instance, MethodID, list);
 					CheckException(Env);
 					return Ret((typename Ret::SourceJniType)Object, LocalOwnership);
@@ -74,8 +86,12 @@ namespace hiena
 				ScopeExit OnExit([&]{va_end(list);});
 
 	#define HIENA_INVOKE_BLOCK(Type, Func) \
-					if constexpr (std::is_same_v<Ret, void>) \
+					if constexpr (std::is_same_v<Ret, Type>) \
 					{ \
+						if (CheckExceptionFast()) \
+						{ \
+							return CreateDefault<Ret>();\
+						} \
 						ScopeExit OnCheckOnExit([&] { CheckException(Env); }); \
 						return Env->CallStatic##Func##MethodV(Clazz, MethodID, list); \
 					}
@@ -91,6 +107,10 @@ namespace hiena
 				else HIENA_INVOKE_BLOCK(jdouble, Double)
 				else if constexpr (IsJniObjectType<Ret>)
 				{
+					if (CheckExceptionFast())
+					{
+						return Ret{};
+					}
 					jobject Object = Env->CallStaticObjectMethodV(Clazz, MethodID, list);
 					CheckException(Env);
 					return Ret((typename Ret::SourceJniType)Object, LocalOwnership);
@@ -121,8 +141,15 @@ namespace hiena
 			JNIEnv* Env = hiena::GetEnv();
 			constexpr const char* FuncName = GetFuncName<Func>();
 			constexpr const char* FuncMangledName = GetMangledName<FuncType>();
+			if (CheckExceptionFast())
+			{
+				return CreateDefault<Ret>();				
+			}
 			static jmethodID MethodID = Env->GetMethodID(Instance->GetOrInitClassInternal(Env), FuncName, FuncMangledName);
-			CheckException(Env);
+			if (CheckException(Env))
+			{
+				return CreateDefault<Ret>();
+			}
 			return InvokerDetail<Ret>::Invoke(Env, ToJniArgument(*Instance, Env), MethodID, ToJniArgument(Arg, Env)...);
 		}
 
@@ -136,8 +163,15 @@ namespace hiena
 			constexpr const char* FuncName = GetFuncName<Func>();
 			constexpr const char* FuncMangledName = GetMangledName<FuncType>();
 			jclass Clazz = LowLevelFindClass(ClassName, Env);
+			if (CheckExceptionFast())
+			{
+				return CreateDefault<Ret>();				
+			}
 			static jmethodID MethodID = Env->GetStaticMethodID(Clazz, FuncName, FuncMangledName);
-			CheckException(Env);
+			if (CheckException(Env))
+			{
+				return CreateDefault<Ret>();
+			}
 			Ret R = StaticInvokerDetail<Ret>::Invoke(Env, Clazz, MethodID, ToJniArgument(Arg, Env)...);
 			Env->DeleteLocalRef(Clazz);
 			return R;
@@ -157,10 +191,20 @@ namespace hiena
 		using FuncType = void(*)(Args&&...);
 		constexpr const char* FuncMangledName = GetMangledName<FuncType>();
 		jclass Clazz = LowLevelFindClass(ClassName, Env);
+		if (CheckExceptionFast())
+		{
+			return {};
+		}
 		static jmethodID MethodID = Env->GetMethodID(Clazz, FuncName, FuncMangledName);
-		CheckException(Env);
+		if (CheckException(Env))
+		{
+			return {};
+		}
 		jobject Ret = Env->NewObject(Clazz, MethodID, ToJniArgument(Arg, Env)...);
-		CheckException(Env);
+		if (CheckException(Env))
+		{
+			return {};
+		}
 		Env->DeleteLocalRef(Clazz);
 		return R(Ret, LocalOwnership);
 	}
@@ -174,7 +218,6 @@ namespace hiena
 
 		Env = hiena::GetEnv();
 		auto R = detail::PrimitiveArrayOps<typename Ret::ValueType>::NewArray(Size, Env);
-		CheckException(Env);
 		return Ret((typename Ret::SourceJniType)R, LocalOwnership);
 	}
 
@@ -188,8 +231,15 @@ namespace hiena
 		Env = hiena::GetEnv();
 		constexpr const char* ClassName = GetJavaClassName<typename Ret::ValueType>();
 		jclass Clazz = LowLevelFindClass(ClassName, Env);
+		if (CheckExceptionFast())
+		{
+			return {};
+		}
 		auto R = Env->NewObjectArray(Size, Clazz, ToJniArgument(Init, Env));
-		CheckException(Env);
+		if (CheckException(Env))
+		{
+			return {};
+		}
 		Env->DeleteLocalRef(Clazz);
 		return Ret((typename Ret::SourceJniType)R, LocalOwnership);
 	}

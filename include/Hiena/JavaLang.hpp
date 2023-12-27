@@ -21,12 +21,16 @@ namespace java::lang
 		ClassLoader getClassLoader();
 	};
 
+	class Throwable : public Object
+	{
+	public:
+		HIENA_CLASS_CONSTRUCTORS(Throwable, Object, jthrowable)
+	};
+
 	class Class : public Object
 	{
 	public:
 		HIENA_CLASS_CONSTRUCTORS(Class, Object, jclass)
-
-		friend jclass ToJniArgument(const Class& Obj, JNIEnv* Env) { return (jclass)ToJniArgument((Object&)Obj, Env); }
 	};
 
 	class ClassLoader : public Object
@@ -46,7 +50,6 @@ namespace java::lang
 		~String();
 
 		std::string_view ToCppString(JNIEnv* Env = nullptr);
-		friend jstring ToJniArgument(const String& Obj, JNIEnv* Env) { return (jstring)ToJniArgument((Object&)Obj, Env); }
 
 	private:
 		const char* Content = nullptr;

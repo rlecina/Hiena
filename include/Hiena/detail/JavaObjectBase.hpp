@@ -44,23 +44,31 @@ namespace hiena::detail
 		friend jobject ToJniArgument(const JavaObjectBase& Obj, JNIEnv*) { return Obj.Instance; }
 
 		template <typename T>
-		friend T NewLocalRef(const T& Other, JNIEnv* Env )
+		friend T NewLocalRef(const T& Object, JNIEnv* Env )
 		{
 			static_assert(std::is_base_of_v<JavaObjectBase, T>, "Should be a java type");
-			using JniType = decltype(ToJniArgument(Other, Env));
-			JniType Instance = (JniType)Env->NewLocalRef(Other.Instance);
+			using JniType = decltype(ToJniArgument(Object, Env));
+			if (!Object)
+			{
+				return T{};
+			}
+			JniType Instance = (JniType)Env->NewLocalRef(Object.Instance);
 			return T(Instance, LocalOwnership);
 		}
 
 		template <typename T>
-		friend T NewGlobalRef(const T& Other, JNIEnv* Env)
+		friend T NewGlobalRef(const T& Object, JNIEnv* Env)
 		{
 			static_assert(std::is_base_of_v<JavaObjectBase, T>, "Should be a java type");
-			using JniType = decltype(ToJniArgument(Other, Env));
-			T New((JniType)Env->NewGlobalRef(Other.Instance));
+			using JniType = decltype(ToJniArgument(Object, Env));
+			if (!Object)
+			{
+				return T{};
+			}
+			T New((JniType)Env->NewGlobalRef(Object.Instance));
 			New.InstanceRefType = JavaRefType::OwningGlobalRef;
 			// Class always set since global ref instances may be used in different threads
-			New.Clazz = (jclass)Env->NewGlobalRef(Other.Clazz);
+			New.Clazz = (jclass)Env->NewGlobalRef(Object.Clazz);
 			New.ClazzRefType = JavaRefType::OwningGlobalRef;
 			return New;
 		}

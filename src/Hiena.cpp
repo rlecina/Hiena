@@ -57,36 +57,47 @@ namespace
 		}
 	}
 }
-	bool Initialize(JavaVM* Vm, const char* MainClass, jint JniVersion)
+	namespace detail
+	{
+		void SetupErrorHandling(ErrorHandlingConfig InConfig);
+	}
+
+	jint Initialize(JavaVM* Vm, const char* MainClass, Config InConfig)
 	{
 		gVirtualMachine = Vm;
-		gJniVersion = JniVersion;
+		gJniVersion = InConfig.JniVersion;
+
+		detail::SetupErrorHandling(InConfig.ErrorHandling);
 
 		if (!EnvData::Initialize(&DetachCurrentThread))
 		{
-			return false;
+			return JNI_ERR;
 		}
 
 		JNIEnv *Env = GetEnv();
 
 		if (!Env)
 		{
-			return false;
+			return JNI_ERR;
 		}
 
 		java::lang::Class ActivityClazz(Env->FindClass(MainClass));
+		if (CheckException(Env))
+		{
+			return JNI_ERR;
+		}
 		if (ActivityClazz == nullptr)
 		{
-			return false;
+			return JNI_ERR;
 		}
 		gClassLoader = ActivityClazz.getClassLoader();
 		if (gClassLoader == nullptr)
 		{
-			return false;
+			return JNI_ERR;
 		}
 		gClassLoader = NewGlobalRef(gClassLoader, Env);
 
-		return true;
+		return gJniVersion;
 	}
 
 	JNIEnv* GetEnv(JNIEnv* Env)
@@ -118,15 +129,19 @@ namespace
 		{
 			return Clazz;
 		}
-		// Need to think about how to report this
+
 		if(Env->ExceptionCheck())
 		{
-			Env->ExceptionClear();
 			java::lang::String Name(ClassName, Env);
 			if (gClassLoader)
 			{
+				Env->ExceptionClear();
 				java::lang::Class Clazz = gClassLoader.findClass(Name);
 				return (jclass)Env->NewLocalRef(ToJniArgument(Clazz, Env));
+			}
+			if (CheckException(Env))
+			{
+				return nullptr;
 			}
 		}
 		return nullptr;

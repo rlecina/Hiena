@@ -78,30 +78,55 @@ namespace hiena::detail
 		using SourceJniType = JniArrayTypeFor<TYPE>; \
 		static SourceJniType NewArray(jsize Size, JNIEnv* Env = nullptr) \
 		{ \
-			SourceJniType Ret = GetEnv(Env)->New##PRIMITIVE_TYPE##Array(Size); \
-			/*CheckException*/ \
+			if (CheckExceptionFast()) \
+			{ \
+				return {};\
+			}\
+			Env = GetEnv(Env); \
+			SourceJniType Ret = Env->New##PRIMITIVE_TYPE##Array(Size); \
+			CheckException(Env); \
 			return Ret; \
 		} \
 		static TYPE* GetArrayElements(SourceJniType Obj, JNIEnv* Env = nullptr) \
 		{ \
-			TYPE* Ret = GetEnv(Env)->Get##PRIMITIVE_TYPE##ArrayElements(Obj, nullptr); \
-			/*CheckException*/ \
+			if (CheckExceptionFast()) \
+			{ \
+				return {};\
+			}\
+			Env = GetEnv(Env); \
+			TYPE* Ret = Env->Get##PRIMITIVE_TYPE##ArrayElements(Obj, nullptr); \
+			CheckException(Env); \
 			return Ret; \
 		} \
 		static void ReleaseArrayElements(SourceJniType Obj, TYPE* Elems, jint Mode, JNIEnv* Env = nullptr) \
 		{ \
-			GetEnv(Env)->Release##PRIMITIVE_TYPE##ArrayElements(Obj, Elems, Mode); \
-			/*CheckException*/ \
+			if (CheckExceptionFast()) \
+			{ \
+				return;\
+			}\
+			Env = GetEnv(Env); \
+			Env->Release##PRIMITIVE_TYPE##ArrayElements(Obj, Elems, Mode); \
+			CheckException(Env); \
 		} \
 		static void GetArrayRegion(SourceJniType Obj, jsize start, jsize len, TYPE* Dst, JNIEnv* Env = nullptr) \
 		{ \
-			GetEnv(Env)->Get##PRIMITIVE_TYPE##ArrayRegion(Obj, start, len, Dst); \
-			/*CheckException*/ \
+			if (CheckExceptionFast()) \
+			{ \
+				return;\
+			}\
+			Env = GetEnv(Env); \
+			Env->Get##PRIMITIVE_TYPE##ArrayRegion(Obj, start, len, Dst); \
+			CheckException(Env); \
 		} \
 		static void SetArrayRegion(SourceJniType Obj, jsize start, jsize len, const TYPE* Src, JNIEnv* Env = nullptr) \
 		{ \
-			GetEnv(Env)->Set##PRIMITIVE_TYPE##ArrayRegion(Obj, start, len, Src); \
-			/*CheckException*/ \
+			if (CheckExceptionFast()) \
+			{ \
+				return;\
+			}\
+			Env = GetEnv(Env); \
+			Env->Set##PRIMITIVE_TYPE##ArrayRegion(Obj, start, len, Src); \
+			CheckException(Env); \
 		} \
 	};
 
