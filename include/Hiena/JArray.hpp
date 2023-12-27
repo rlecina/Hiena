@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "Hiena/detail/JArrayBase.hpp"
+#include "Hiena/utility/JniTraits.hpp"
 
 namespace hiena
 {

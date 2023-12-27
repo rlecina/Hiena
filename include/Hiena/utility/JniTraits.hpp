@@ -3,6 +3,7 @@
 #include <jni.h>
 #include <type_traits>
 
+#include "Hiena/detail/JArrayBase.hpp"
 #include "Hiena/detail/JavaObjectBase.hpp"
 #include "Hiena/meta/Helpers.hpp"
 
@@ -36,29 +37,22 @@ namespace hiena
 
 	namespace detail
 	{
-		template <typename T, bool IsObjectType = IsJniObjectType<T>>
-		struct JniArrayTypeForImpl
+		template <typename T>
+		struct IsJArrayTypeImpl
 		{
-			static_assert(AlwaysFalse<T>, "Unsupported type for array");
+			static inline constexpr bool Value = false;
 		};
 
-		template <typename T>
-		struct JniArrayTypeForImpl<T, true> { using ArrayType = jobjectArray; };
-
-#define HIENA_ASSOCIATE_ARRAYTYPE(TYPE)	template <> struct JniArrayTypeForImpl<TYPE, false> { using ArrayType = TYPE##Array;};
-		HIENA_ASSOCIATE_ARRAYTYPE(jboolean)
-		HIENA_ASSOCIATE_ARRAYTYPE(jbyte)
-		HIENA_ASSOCIATE_ARRAYTYPE(jchar)
-		HIENA_ASSOCIATE_ARRAYTYPE(jshort)
-		HIENA_ASSOCIATE_ARRAYTYPE(jint)
-		HIENA_ASSOCIATE_ARRAYTYPE(jlong)
-		HIENA_ASSOCIATE_ARRAYTYPE(jfloat)
-		HIENA_ASSOCIATE_ARRAYTYPE(jdouble)
-#undef HIENA_ASSOCIATE_ARRAYTYPE
+		template <template <typename> typename Cont, typename T>
+		struct IsJArrayTypeImpl<Cont<T>>
+		{
+			static inline constexpr bool Value = std::is_base_of_v<JArrayBase<T>, Cont<T>>;
+		};
 	}
 
 	template <typename T>
-	using JniArrayTypeFor = typename detail::JniArrayTypeForImpl<T>::ArrayType;
+	inline static constexpr bool IsJArrayType = detail::IsJArrayTypeImpl<T>::Value;
+
 
 	template <typename T>
 	using LessSpecializedJniType = std::conditional_t<std::is_base_of_v<std::remove_pointer_t<jobject>,

@@ -4,7 +4,6 @@
 #include <ostream>
 
 #include "Hiena/detail/FieldBase.hpp"
-#include "Hiena/detail/JavaObjectBase.hpp"
 #include "Hiena/utility/JniTraits.hpp"
 
 namespace hiena

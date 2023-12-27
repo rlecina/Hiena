@@ -8,7 +8,8 @@
 #include "Hiena/detail/SignatureComposer.hpp"
 #include "Hiena/meta/FuncSig.hpp"
 #include "Hiena/meta/Helpers.hpp"
-#include "Hiena/utility/Helpers.hpp"
+#include "Hiena/utility/ScopeExit.hpp"
+#include "Hiena/utility/JniTraits.hpp"
 
 namespace hiena
 {
