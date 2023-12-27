@@ -25,4 +25,28 @@ namespace java::lang
 	: Object(hiena::GetEnv(Env)->NewStringUTF(Text), hiena::LocalOwnership)
 	{
 	}
+
+	String::~String()
+	{
+		if (*this && Content)
+		{
+			JNIEnv* Env = hiena::GetEnv();
+			Env->ReleaseStringUTFChars(ToJniArgument(*this, Env), Content);
+		}
+	}
+
+	std::string_view ToCppString(const String& Obj, JNIEnv* Env)
+	{
+		auto &MutableObj = const_cast<String&>(Obj);
+
+		if (Obj.Content)
+		{
+			return Obj.Content;
+		}
+		else if (Obj)
+		{
+			MutableObj.Content = Env->GetStringUTFChars(ToJniArgument(Obj, Env), nullptr);
+		}
+		return MutableObj.Content;
+	}
 }

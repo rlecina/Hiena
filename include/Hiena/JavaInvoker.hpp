@@ -133,10 +133,10 @@ namespace hiena
 			constexpr const char* ClassName = GetJavaClassFrom<Func>();
 			constexpr const char* FuncName = GetFuncName<Func>();
 			constexpr const char* FuncMangledName = GetMangledName<FuncType>();
-			java::lang::Class Clazz = FindClass(ClassName, Env);
-			static jmethodID MethodID = Env->GetStaticMethodID(ToJniArgument(Clazz, Env), FuncName, FuncMangledName);
+			jclass Clazz = LowLevelFindClass(ClassName, Env);
+			static jmethodID MethodID = Env->GetStaticMethodID(Clazz, FuncName, FuncMangledName);
 			CheckException(Env);
-			return StaticInvokerDetail<Ret>::Invoke(Env, ToJniArgument(Clazz, Env), MethodID, ToJniArgument(Arg, Env)...);
+			return StaticInvokerDetail<Ret>::Invoke(Env, Clazz, MethodID, ToJniArgument(Arg, Env)...);
 		}
 	};
 }

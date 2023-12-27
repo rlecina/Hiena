@@ -60,4 +60,9 @@ namespace hiena
 	template <typename T>
 	using JniArrayTypeFor = typename detail::JniArrayTypeForImpl<T>::ArrayType;
 
+	template <typename T>
+	using LessSpecializedJniType = std::conditional_t<std::is_base_of_v<std::remove_pointer_t<jobject>,
+																		std::remove_pointer_t<T>>,
+														jobject,
+														T>;
 }

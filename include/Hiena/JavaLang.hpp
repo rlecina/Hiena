@@ -48,8 +48,12 @@ namespace java::lang
 			:Object((jobject)Instance, Tag) {}
 
 		String(const char* Text, JNIEnv* Env = nullptr);
+		~String();
+
+		friend std::string_view ToCppString(const String& Obj, JNIEnv* Env);
 
 		friend jstring ToJniArgument(const String& Obj, JNIEnv* Env) { return (jstring)ToJniArgument((Object&)Obj, Env); }
+	private:
+		const char* Content = nullptr;
 	};
-
 }

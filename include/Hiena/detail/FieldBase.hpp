@@ -4,8 +4,11 @@
 
 namespace hiena::detail
 {
-	template <typename>
-	struct FieldOps;
+	template <typename T>
+	struct FieldOps
+	{
+		static_assert(AlwaysFalse<T>, "Unsupported type");
+	};
 
 	class FieldBase
 	{
@@ -50,9 +53,10 @@ namespace hiena::detail
 			return *this;
 		}
 
-		void Setup(JavaObjectBase* InOwner, const char* InName)
+		void Setup(JavaObjectBase* InOwner, const char* InOwnerClassName, const char* InName)
 		{
 			Owner = InOwner;
+			OwnerClassName = InOwnerClassName;
 			FieldName = InName;
 		}
 
@@ -60,6 +64,15 @@ namespace hiena::detail
 		jobject GetOwner()
 		{
 			return Owner->GetInstance();
+		}
+
+		jclass GetStaticOwnerClass(JNIEnv* Env)
+		{
+			if (Owner)
+			{
+				return Owner->GetOrInitClassInternal(Env);
+			}
+			return LowLevelFindClass(OwnerClassName, Env);
 		}
 
 		jfieldID GetFieldId(const char* Signature, JNIEnv* Env)
@@ -74,6 +87,17 @@ namespace hiena::detail
 			return FieldId;
 		}
 
+		jfieldID GetStaticFieldId(jclass Clazz, const char* Signature, JNIEnv* Env)
+		{
+			if (FieldId != 0)
+			{
+				return FieldId;
+			}
+			FieldId = Env->GetStaticFieldID(Clazz, FieldName, Signature);
+			// CheckException
+			return FieldId;
+		}
+
 		void TryCopyFieldId(const FieldBase& Other)
 		{
 			if(FieldId == 0 && Other.FieldId != 0)
@@ -82,7 +106,7 @@ namespace hiena::detail
 				{
 					JNIEnv* Env = GetEnv();
 					jclass OwnerClass = Owner->GetOrInitClassInternal(Env);
-					jclass OtherClass = Other.Owner->GetOrInitClassInternal(Env);
+					jclass OtherClass = Owner->GetOrInitClassInternal(Env);
 					if (OwnerClass == OtherClass ||
 						Env->IsSameObject(OwnerClass,OtherClass))
 					{
@@ -94,6 +118,7 @@ namespace hiena::detail
 	private:
 		JavaObjectBase* Owner = nullptr;
 		const char* FieldName = nullptr;
+		const char* OwnerClassName = nullptr;
 		jfieldID FieldId = 0;
 	};
 
@@ -109,7 +134,7 @@ namespace hiena::detail
 		} \
 		static auto GetStaticField(jclass Clazz, jfieldID fieldId, JNIEnv* Env = nullptr) \
 		{ \
-			auto Ret =GetEnv(Env)->GetStatic##PRIMITIVE_TYPE##Field(Clazz, fieldId); \
+			auto Ret = GetEnv(Env)->GetStatic##PRIMITIVE_TYPE##Field(Clazz, fieldId); \
 			/*CheckException*/ \
 			return Ret; \
 		} \

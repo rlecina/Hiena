@@ -110,11 +110,11 @@ namespace
 		return Data.Env;
 	}
 
-	java::lang::Class FindClass(const char* ClassName, JNIEnv* Env)
+	jclass LowLevelFindClass(const char* ClassName, JNIEnv* Env)
 	{
 		Env = GetEnv(Env);
 
-		if(java::lang::Class Clazz{Env->FindClass(ClassName)}; Clazz)
+		if(jclass Clazz = Env->FindClass(ClassName))
 		{
 			return Clazz;
 		}
@@ -125,9 +125,14 @@ namespace
 			java::lang::String Name(ClassName, Env);
 			if (gClassLoader)
 			{
-				return gClassLoader.findClass(Name);
+				return ToJniArgument(gClassLoader.findClass(Name), Env);
 			}
 		}
-		return {};
+		return nullptr;
+	}
+
+	java::lang::Class FindClass(const char* ClassName, JNIEnv* Env)
+	{
+		return java::lang::Class(LowLevelFindClass(ClassName, Env));
 	}
 }
