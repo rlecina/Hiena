@@ -42,11 +42,12 @@ namespace java::lang
 	public:
 		HIENA_CLASS_CONSTRUCTORS(String, Object, jstring)
 
-		String(const char* Text, hiena::CheckedJniEnv Env = {});
+		explicit String(const char* Text, hiena::CheckedJniEnv Env = {});
 		~String();
 
 		std::string_view ToCppString(hiena::CheckedJniEnv Env = {});
 
+		static String valueOf(Object obj);
 	private:
 		const char* Content = nullptr;
 	};

@@ -16,21 +16,21 @@ namespace hiena
 {
 	namespace detail
 	{
-	#define HIENA_INVOKE_BLOCK(TYPE, FUNC, ARG) \
+	#define HIENA_INVOKE_BLOCK(TYPE, FUNC, ...) \
 				if constexpr (std::is_same_v<Ret, TYPE>) \
 				{ \
 					if constexpr (std::is_same_v<Ret, void>) \
 					{ \
 						va_list list; \
 						va_start(list, MethodID); \
-						Env->FUNC##MethodV(ARG, MethodID, list); \
+						Env->FUNC##MethodV(__VA_ARGS__, MethodID, list); \
 						va_end(list); \
 					} \
 					else \
 					{ \
 						va_list list; \
 						va_start(list, MethodID); \
-						Ret R =  Env->FUNC##MethodV(ARG, MethodID, list); \
+						Ret R =  Env->FUNC##MethodV(__VA_ARGS__, MethodID, list); \
 						va_end(list); \
 						return R; \
 					} \
@@ -93,6 +93,35 @@ namespace hiena
 				}
 			}
 		};
+
+		template <typename Ret>
+		struct NonvirtualInvokerDetail
+		{
+			static Ret Invoke(CheckedJniEnv Env, jobject Instance, jclass Clazz, jmethodID MethodID, ...)
+			{
+				HIENA_INVOKE_BLOCK(void, CallNonvirtualVoid, Instance, Clazz)
+				else HIENA_INVOKE_BLOCK(jboolean, CallNonvirtualBoolean, Instance, Clazz)
+				else HIENA_INVOKE_BLOCK(jbyte, CallNonvirtualByte, Instance, Clazz)
+				else HIENA_INVOKE_BLOCK(jchar, CallNonvirtualChar, Instance, Clazz)
+				else HIENA_INVOKE_BLOCK(jshort, CallNonvirtualShort, Instance, Clazz)
+				else HIENA_INVOKE_BLOCK(jint, CallNonvirtualInt, Instance, Clazz)
+				else HIENA_INVOKE_BLOCK(jlong, CallNonvirtualLong, Instance, Clazz)
+				else HIENA_INVOKE_BLOCK(jfloat, CallNonvirtualFloat, Instance, Clazz)
+				else HIENA_INVOKE_BLOCK(jdouble, CallNonvirtualDouble, Instance, Clazz)
+				else if constexpr (IsJniObjectType<Ret>)
+				{
+					va_list list;
+					va_start(list, MethodID);
+					jobject Object = Env->CallNonvirtualObjectMethodV(Instance, Clazz, MethodID, list);
+					va_end(list);
+					return Ret((typename Ret::SourceJniType)Object, LocalOwnership);
+				}
+				else
+				{
+					static_assert(hiena::AlwaysFalse<Ret>, "Unsupported return type");
+				}
+			}
+		};
 #undef HIENA_INVOKE_BLOCK
 }
 	template <typename T>
@@ -106,7 +135,7 @@ namespace hiena
 		static_assert(std::is_same_v<Ret, hiena::ValueType<Ret>>, "Only value types supported as return type");
 
 		template <typename T, typename... Args>
-		static Ret Invoke(T* Instance, Args&&... Arg)
+		static Ret Invoke(T* Instance, const Args&... Arg)
 		{
 			static_assert(std::is_invocable_v<FuncType, T*, Args...>, "Arguments in wrong order");
 			using namespace detail;
@@ -118,7 +147,7 @@ namespace hiena
 		}
 
 		template <typename... Args>
-		static Ret StaticInvoke(Args&&... Arg)
+		static Ret StaticInvoke(const Args&... Arg)
 		{
 			static_assert(std::is_invocable_v<FuncType, Args...>, "Arguments in wrong order");
 			using namespace detail;
@@ -131,6 +160,18 @@ namespace hiena
 			Ret R = StaticInvokerDetail<Ret>::Invoke(Env, Clazz, MethodID, ToJniArgument(Arg, Env)...);
 			Env->DeleteLocalRef(Clazz);
 			return R;
+		}
+
+		template <typename T, typename... Args>
+		static Ret Invoke(T* Instance, java::lang::Class Clazz, const Args&... Arg)
+		{
+			static_assert(std::is_invocable_v<FuncType, T*, Args...>, "Arguments in wrong order");
+			using namespace detail;
+			constexpr const char* FuncName = GetFuncName<Func>();
+			constexpr const char* FuncMangledName = GetMangledName<FuncType>();
+			CheckedJniEnv Env;
+			static jmethodID MethodID = Env->GetMethodID(Instance->GetOrInitClassInternal(Env), FuncName, FuncMangledName);
+			return NonvirtualInvokerDetail<Ret>::Invoke(Env, ToJniArgument(*Instance, Env), ToJniArgument(Clazz, Env), MethodID, ToJniArgument(Arg, Env)...);
 		}
 	};
 

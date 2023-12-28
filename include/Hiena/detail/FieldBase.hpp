@@ -6,12 +6,6 @@
 
 namespace hiena::detail
 {
-	template <typename T>
-	struct FieldOps
-	{
-		static_assert(AlwaysFalse<T>, "Unsupported type");
-	};
-
 	class FieldBase
 	{
 	public:
@@ -37,12 +31,12 @@ namespace hiena::detail
 		}
 
 	protected:
-		jobject GetOwner()
+		jobject GetOwner() const
 		{
 			return Owner->GetInstance();
 		}
 
-		jclass GetStaticOwnerClass(CheckedJniEnv Env)
+		jclass GetStaticOwnerClass(CheckedJniEnv Env) const
 		{
 			if (Owner)
 			{
@@ -51,7 +45,7 @@ namespace hiena::detail
 			return LowLevelFindClass(OwnerClassName, (JNIEnv*)Env);
 		}
 
-		void ReleaseStaticOwnerClass(jclass Clazz, CheckedJniEnv Env)
+		void ReleaseStaticOwnerClass(jclass Clazz, CheckedJniEnv Env) const
 		{
 			if (!Owner)
 			{
@@ -60,7 +54,7 @@ namespace hiena::detail
 		}
 
 
-		jfieldID GetFieldId(const char* Signature, CheckedJniEnv Env)
+		jfieldID GetFieldId(const char* Signature, CheckedJniEnv Env) const
 		{
 			if (FieldId != 0)
 			{
@@ -70,7 +64,7 @@ namespace hiena::detail
 			return FieldId = Env->GetFieldID(Clazz, FieldName, Signature);
 		}
 
-		jfieldID GetStaticFieldId(jclass Clazz, const char* Signature, CheckedJniEnv Env)
+		jfieldID GetStaticFieldId(jclass Clazz, const char* Signature, CheckedJniEnv Env) const
 		{
 			if (FieldId != 0)
 			{
@@ -100,8 +94,27 @@ namespace hiena::detail
 		JavaObjectBase* Owner;
 		const char* FieldName;
 		const char* OwnerClassName;
-		jfieldID FieldId = 0;
+		mutable jfieldID FieldId = 0;
 	};
+
+	template <typename T>
+	struct FieldOps
+	{
+		static_assert(AlwaysFalse<T>, "Unsupported type");
+	};
+
+	template <typename T, typename F>
+	F InitFields(T* Owner, F& Fields)
+	{
+		static_assert(IsJniObjectType<T>, "Invalid Field owner");
+		auto Tuple = ToTuple(Fields);
+		auto Names = GetFieldNames<F>();
+		IndexedTupleFor(Tuple, [&](size_t Idx, auto& Field)
+			{
+			Field.Setup(Owner, GetJavaClassName<T>(), Names[Idx]);
+			});
+		return {};
+	}
 
 #define HIENA_SETUP_FIELD_OPS(TYPE, PRIMITIVE_TYPE) \
 	template <>\

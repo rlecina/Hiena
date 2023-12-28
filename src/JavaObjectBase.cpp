@@ -100,7 +100,7 @@ namespace hiena::detail
 		}
 
 		Clazz = Env->GetObjectClass(Instance);
-		if(Clazz && InstanceRefType == JavaRefType::OwningLocalRef)
+		if(Clazz)
 		{
 			Clazz = (jclass)Env->NewLocalRef(Clazz);
 			ClazzRefType = JavaRefType::OwningLocalRef;

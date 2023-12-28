@@ -47,6 +47,11 @@ namespace java::lang
 		return Content;
 	}
 
+	String String::valueOf(Object obj)
+	{
+		return hiena::JavaInvoker<&String::valueOf>::StaticInvoke(obj);
+	}
+
 	String Throwable::getMessage()
 	{
 		return hiena::JavaInvoker<&Throwable::getMessage>::Invoke(this);

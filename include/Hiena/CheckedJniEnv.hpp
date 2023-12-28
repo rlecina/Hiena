@@ -4,6 +4,7 @@
 
 #include "Hiena/LowLevel.hpp"
 #include "Hiena/CheckException.hpp"
+#include "Hiena/detail/CheckedJniMacros.hpp"
 #include "Hiena/meta/Helpers.hpp"
 #include "Hiena/meta/Preprocessor.hpp"
 #include "Hiena/utility/ScopeExit.hpp"
@@ -12,125 +13,22 @@ namespace hiena
 {
     class CheckedJniEnv
     {
+	private:
+		JNIEnv* Env;
     public:
 		CheckedJniEnv()
-		:Env(LowLevelGetEnv(nullptr))
-		{
-		}
+			:Env(LowLevelGetEnv(nullptr)) {}
         CheckedJniEnv(JNIEnv* InEnv)
-        :Env(LowLevelGetEnv(InEnv))
-        {}
+        	:Env(LowLevelGetEnv(InEnv)) {}
 
-        explicit operator bool() const 
-        {
-            return Env != nullptr;
-        }
+        explicit operator bool() const  { return Env != nullptr; }
+        explicit operator JNIEnv*() const { return Env; }
+        CheckedJniEnv* operator->() { return this; }
 
-        explicit operator JNIEnv*() const
-        {
-            return Env;
-        }
+        friend bool operator==(const CheckedJniEnv& Lhs, nullptr_t) { return Lhs.Env == nullptr; }
+        friend bool operator==(nullptr_t, const CheckedJniEnv& Rhs ) { return Rhs.Env == nullptr; }
 
-        CheckedJniEnv* operator->() 
-        {
-            return this;
-        }
-
-        friend bool operator ==(const CheckedJniEnv& Lhs, nullptr_t)
-        {
-            return Lhs.Env == nullptr;
-        }
-
-        friend bool operator ==(nullptr_t, const CheckedJniEnv& Rhs )
-        {
-            return Rhs.Env == nullptr;
-        }
-
-#define HIENA_PP_ARG_NAMES(TYPES) HIENA_PP_PACK(HIENA_PP_DEFER(HIENA_PP_IDS)(a, HIENA_PP_NUM_ARGS(HIENA_PP_UNPACK TYPES)))
-
-#define HIENA_CHECKED_METHOD_IMPL(RETTYPE, FUNCNAME, TYPEARGS, ARGS) \
-        RETTYPE FUNCNAME(TYPEARGS) \
-        {\
-            if (CheckExceptionFast()) \
-                return CreateDefault<RETTYPE>(); \
-            ScopeExit OnExit([this]{ CheckException(Env); }); \
-            return Env->FUNCNAME(HIENA_PP_UNPACK ARGS); \
-    	}
-
-#define HIENA_UNCHECKED_METHOD_IMPL(RETTYPE, FUNCNAME, TYPEARGS, ARGS) \
-        RETTYPE FUNCNAME(TYPEARGS) \
-        {\
-            return Env->FUNCNAME(HIENA_PP_UNPACK ARGS); \
-    	}
-
-#define HIENA_CHECKED_VARIADIC_VOID_METHOD_IMPL(FUNCNAME, TYPEARGS, ARGS) \
-    void FUNCNAME(TYPEARGS, ...) \
-    { \
-        va_list args; \
-        va_start(args, HIENA_PP_CONCAT(a,HIENA_PP_NUM_ARGS(HIENA_PP_UNPACK ARGS))); \
-        FUNCNAME##V(HIENA_PP_UNPACK ARGS, args); \
-        va_end(args); \
-    }
-
-#define HIENA_CHECKED_VARIADIC_METHOD_IMPL(RETTYPE, FUNCNAME, TYPEARGS, ARGS) \
-    RETTYPE FUNCNAME(TYPEARGS, ...) \
-    { \
-        RETTYPE result; \
-        va_list args; \
-        va_start(args, HIENA_PP_CONCAT(a,HIENA_PP_NUM_ARGS(HIENA_PP_UNPACK ARGS))); \
-        result = FUNCNAME##V(HIENA_PP_UNPACK ARGS, args); \
-        va_end(args); \
-        return result; \
-    }
-
-#define HIENA_UNCHECKED_METHOD_NOARGS(RETTYPE, FUNCNAME) HIENA_UNCHECKED_METHOD_IMPL(RETTYPE, FUNCNAME,,())
-
-#define HIENA_UNCHECKED_METHOD(RETTYPE, FUNCNAME, TYPES) \
-    HIENA_UNCHECKED_METHOD_IMPL(RETTYPE, FUNCNAME, HIENA_PP_ZIP(TYPES,(,), HIENA_PP_ARG_NAMES(TYPES)), HIENA_PP_ARG_NAMES(TYPES))
-
-#define HIENA_CHECKED_METHOD_NOARGS(RETTYPE, FUNCNAME) HIENA_CHECKED_METHOD_IMPL(RETTYPE, FUNCNAME,,())
-
-#define HIENA_CHECKED_METHOD(RETTYPE, FUNCNAME, TYPES) \
-    HIENA_CHECKED_METHOD_IMPL(RETTYPE, FUNCNAME, HIENA_PP_ZIP(TYPES,(,), HIENA_PP_ARG_NAMES(TYPES)), HIENA_PP_ARG_NAMES(TYPES))
-
-#define HIENA_CHECKED_VARIADIC_VOID_METHOD(FUNC, TYPES) \
-    HIENA_CHECKED_VARIADIC_VOID_METHOD_IMPL(FUNC, HIENA_PP_ZIP(TYPES,(,), HIENA_PP_ARG_NAMES(TYPES)), HIENA_PP_ARG_NAMES(TYPES))
-
-#define HIENA_CHECKED_VARIADIC_METHOD(TYPE, FUNC, TYPES) \
-    HIENA_CHECKED_VARIADIC_METHOD_IMPL(TYPE, FUNC, HIENA_PP_ZIP(TYPES,(,), HIENA_PP_ARG_NAMES(TYPES)), HIENA_PP_ARG_NAMES(TYPES))
-
-#define HIENA_CHECKED_VARIADIC_VOID_METHOD_SET(FUNCNAME, TYPES) \
-        HIENA_CHECKED_VARIADIC_VOID_METHOD(FUNCNAME, TYPES) \
-        HIENA_CHECKED_METHOD(void, FUNCNAME##V, HIENA_PP_PACK(HIENA_PP_UNPACK TYPES, va_list)) \
-        HIENA_CHECKED_METHOD(void, FUNCNAME##A, HIENA_PP_PACK(HIENA_PP_UNPACK TYPES, const jvalue*))
-
-#define HIENA_CHECKED_VARIADIC_METHOD_SET(RETTYPE, FUNCNAME, TYPES) \
-        HIENA_CHECKED_VARIADIC_METHOD(RETTYPE, FUNCNAME, TYPES) \
-        HIENA_CHECKED_METHOD(RETTYPE, FUNCNAME##V, HIENA_PP_PACK(HIENA_PP_UNPACK TYPES, va_list)) \
-        HIENA_CHECKED_METHOD(RETTYPE, FUNCNAME##A, HIENA_PP_PACK(HIENA_PP_UNPACK TYPES, const jvalue*))
-
-#define HIENA_CHECKED_GETTERS(PREFIX, POSTFIX, ARGS) \
-        HIENA_CHECKED_METHOD(jobject, PREFIX##Object##POSTFIX, ARGS) \
-        HIENA_CHECKED_METHOD(jboolean, PREFIX##Boolean##POSTFIX, ARGS) \
-        HIENA_CHECKED_METHOD(jbyte, PREFIX##Byte##POSTFIX, ARGS) \
-        HIENA_CHECKED_METHOD(jchar, PREFIX##Char##POSTFIX, ARGS) \
-        HIENA_CHECKED_METHOD(jshort, PREFIX##Short##POSTFIX, ARGS) \
-        HIENA_CHECKED_METHOD(jint, PREFIX##Int##POSTFIX, ARGS) \
-        HIENA_CHECKED_METHOD(jlong, PREFIX##Long##POSTFIX, ARGS) \
-        HIENA_CHECKED_METHOD(jfloat, PREFIX##Float##POSTFIX, ARGS) \
-        HIENA_CHECKED_METHOD(jdouble, PREFIX##Double##POSTFIX, ARGS)
-
-#define HIENA_CHECKED_SETTERS(PREFIX, POSTFIX, ARGS) \
-        HIENA_CHECKED_METHOD(void, PREFIX##Object##POSTFIX, HIENA_PP_PACK(HIENA_PP_PUSH_BACK( jobject, HIENA_PP_UNPACK ARGS))) \
-        HIENA_CHECKED_METHOD(void, PREFIX##Boolean##POSTFIX, HIENA_PP_PACK(HIENA_PP_PUSH_BACK( jboolean, HIENA_PP_UNPACK ARGS))) \
-        HIENA_CHECKED_METHOD(void, PREFIX##Byte##POSTFIX, HIENA_PP_PACK(HIENA_PP_PUSH_BACK( jbyte, HIENA_PP_UNPACK ARGS))) \
-        HIENA_CHECKED_METHOD(void, PREFIX##Char##POSTFIX, HIENA_PP_PACK(HIENA_PP_PUSH_BACK( jchar, HIENA_PP_UNPACK ARGS))) \
-        HIENA_CHECKED_METHOD(void, PREFIX##Short##POSTFIX, HIENA_PP_PACK(HIENA_PP_PUSH_BACK( jshort, HIENA_PP_UNPACK ARGS))) \
-        HIENA_CHECKED_METHOD(void, PREFIX##Int##POSTFIX, HIENA_PP_PACK(HIENA_PP_PUSH_BACK( jint, HIENA_PP_UNPACK ARGS))) \
-        HIENA_CHECKED_METHOD(void, PREFIX##Long##POSTFIX, HIENA_PP_PACK(HIENA_PP_PUSH_BACK( jlong, HIENA_PP_UNPACK ARGS))) \
-        HIENA_CHECKED_METHOD(void, PREFIX##Float##POSTFIX, HIENA_PP_PACK(HIENA_PP_PUSH_BACK( jfloat, HIENA_PP_UNPACK ARGS))) \
-        HIENA_CHECKED_METHOD(void, PREFIX##Double##POSTFIX, HIENA_PP_PACK(HIENA_PP_PUSH_BACK( jdouble, HIENA_PP_UNPACK ARGS)))
-
+		//Wrapped methods
         HIENA_CHECKED_METHOD_NOARGS(jint, GetVersion);
     	HIENA_CHECKED_METHOD(jclass, DefineClass, (const char *, jobject, const jbyte*, jsize))
 	    HIENA_CHECKED_METHOD(jclass, FindClass, (const char*))
@@ -183,12 +81,10 @@ namespace hiena
         HIENA_CHECKED_VARIADIC_METHOD_SET(jdouble, CallNonvirtualDoubleMethod, (jobject, jclass, jmethodID))
 
         HIENA_CHECKED_METHOD(jfieldID, GetFieldID, (jclass, const char*, const char*))
-
         HIENA_CHECKED_GETTERS(Get, Field, (jobject, jfieldID))
         HIENA_CHECKED_SETTERS(Set, Field, (jobject, jfieldID))
 
         HIENA_CHECKED_METHOD(jmethodID, GetStaticMethodID, (jclass, const char*, const char*))
-
         HIENA_CHECKED_VARIADIC_VOID_METHOD_SET(CallStaticVoidMethod, (jclass, jmethodID))
         HIENA_CHECKED_VARIADIC_METHOD_SET(jobject, CallStaticObjectMethod, (jclass, jmethodID))
         HIENA_CHECKED_VARIADIC_METHOD_SET(jboolean, CallStaticBooleanMethod, (jclass, jmethodID))
@@ -201,7 +97,6 @@ namespace hiena
         HIENA_CHECKED_VARIADIC_METHOD_SET(jdouble, CallStaticDoubleMethod, (jclass, jmethodID))
 
         HIENA_CHECKED_METHOD(jfieldID, GetStaticFieldID, (jclass, const char*, const char*))
-
         HIENA_CHECKED_GETTERS(GetStatic, Field, (jclass, jfieldID))
         HIENA_CHECKED_SETTERS(SetStatic, Field, (jclass, jfieldID))
 
@@ -265,7 +160,6 @@ namespace hiena
         HIENA_CHECKED_METHOD(void, SetDoubleArrayRegion, (jdoubleArray, jsize, jsize, const jdouble*))
 
         HIENA_CHECKED_METHOD(jint, RegisterNatives, (jclass, const JNINativeMethod*, jint))
-
         HIENA_CHECKED_METHOD(jint, UnregisterNatives, (jclass))
         HIENA_CHECKED_METHOD(jint, MonitorEnter, (jobject))
         HIENA_CHECKED_METHOD(jint, MonitorExit, (jobject))
@@ -286,8 +180,7 @@ namespace hiena
         HIENA_CHECKED_METHOD(void*, GetDirectBufferAddress, (jobject))
         HIENA_CHECKED_METHOD(jlong, GetDirectBufferCapacity, (jobject))
         HIENA_CHECKED_METHOD(jobjectRefType, GetObjectRefType, (jobject))
-
-    private:
-        JNIEnv* Env;
     };
 }
+
+#include "Hiena/detail/UndefCheckedJniMacros.hpp"

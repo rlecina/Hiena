@@ -1,7 +1,6 @@
 #pragma once
 
 #include <jni.h>
-#include <ostream>
 
 #include "Hiena/CheckedJniEnv.hpp"
 #include "Hiena/detail/FieldBase.hpp"
@@ -9,19 +8,6 @@
 
 namespace hiena
 {
-	template <typename T, typename F>
-	F InitFields(T* Owner, F& Fields)
-	{
-		static_assert(IsJniObjectType<T>, "Invalid Field owner");
-		auto Tuple = ToTuple(Fields);
-		auto Names = GetFieldNames<F>();
-		IndexedTupleFor(Tuple, [&](size_t Idx, auto& Field)
-			{
-				Field.Setup(Owner, GetJavaClassName<T>(), Names[Idx]);
-			});
-		return {};
-	}
-
 	template <typename T>
 	class Field: public detail::FieldBase
 	{
@@ -38,12 +24,17 @@ namespace hiena
 			return *this;
 		}
 
+		T operator *() const
+		{
+			return Get();
+		}
+
 		operator T() const
 		{
 			return Get();
 		}
 
-		T Get(CheckedJniEnv Env = {})
+		T Get(CheckedJniEnv Env = {}) const
 		{
 			using namespace detail;
 			using JniType = LessSpecializedJniType<decltype(ToJniArgument(std::declval<T>(), nullptr))>;
@@ -75,11 +66,6 @@ namespace hiena
 				Value = {};
 			}
 		}
-
-		friend std::ostream& operator <<(std::ostream& os, Field<T>& F)
-		{
-			return (os << F.Get());
-		}
 	};
 
 
@@ -99,12 +85,17 @@ namespace hiena
 			return *this;
 		}
 
+		T operator *() const
+		{
+			return Get();
+		}
+
 		operator T() const
 		{
 			return Get();
 		}
 
-		T Get(CheckedJniEnv Env = {})
+		T Get(CheckedJniEnv Env = {}) const
 		{
 			using namespace detail;
 			using JniType = LessSpecializedJniType<decltype(ToJniArgument(std::declval<T>(), nullptr))>;
@@ -139,11 +130,6 @@ namespace hiena
 			{
 				Value = {};
 			}
-		}
-
-		friend std::ostream& operator <<(std::ostream& os, Field<T>& F)
-		{
-			return (os << F.Get());
 		}
 	};
 }
