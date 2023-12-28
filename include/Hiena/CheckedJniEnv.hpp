@@ -1,18 +1,24 @@
 #pragma once
 
 #include <jni.h>
-#include "Hiena/Hiena.hpp"
+
+#include "Hiena/LowLevel.hpp"
+#include "Hiena/CheckException.hpp"
 #include "Hiena/meta/Helpers.hpp"
 #include "Hiena/meta/Preprocessor.hpp"
 #include "Hiena/utility/ScopeExit.hpp"
 
-namespace hiena::detail
+namespace hiena
 {
     class CheckedJniEnv
     {
     public:
+		CheckedJniEnv()
+		:Env(LowLevelGetEnv(nullptr))
+		{
+		}
         CheckedJniEnv(JNIEnv* InEnv)
-        :Env(InEnv)
+        :Env(LowLevelGetEnv(InEnv))
         {}
 
         explicit operator bool() const 
@@ -20,7 +26,7 @@ namespace hiena::detail
             return Env != nullptr;
         }
 
-        explicit operator JNIEnv*() const 
+        explicit operator JNIEnv*() const
         {
             return Env;
         }
@@ -40,7 +46,6 @@ namespace hiena::detail
             return Rhs.Env == nullptr;
         }
 
-        // CheckedOps
 #define HIENA_PP_ARG_NAMES(TYPES) HIENA_PP_PACK(HIENA_PP_DEFER(HIENA_PP_IDS)(a, HIENA_PP_NUM_ARGS(HIENA_PP_UNPACK TYPES)))
 
 #define HIENA_CHECKED_METHOD_IMPL(RETTYPE, FUNCNAME, TYPEARGS, ARGS) \
@@ -49,6 +54,12 @@ namespace hiena::detail
             if (CheckExceptionFast()) \
                 return CreateDefault<RETTYPE>(); \
             ScopeExit OnExit([this]{ CheckException(Env); }); \
+            return Env->FUNCNAME(HIENA_PP_UNPACK ARGS); \
+    	}
+
+#define HIENA_UNCHECKED_METHOD_IMPL(RETTYPE, FUNCNAME, TYPEARGS, ARGS) \
+        RETTYPE FUNCNAME(TYPEARGS) \
+        {\
             return Env->FUNCNAME(HIENA_PP_UNPACK ARGS); \
     	}
 
@@ -71,6 +82,11 @@ namespace hiena::detail
         va_end(args); \
         return result; \
     }
+
+#define HIENA_UNCHECKED_METHOD_NOARGS(RETTYPE, FUNCNAME) HIENA_UNCHECKED_METHOD_IMPL(RETTYPE, FUNCNAME,,())
+
+#define HIENA_UNCHECKED_METHOD(RETTYPE, FUNCNAME, TYPES) \
+    HIENA_UNCHECKED_METHOD_IMPL(RETTYPE, FUNCNAME, HIENA_PP_ZIP(TYPES,(,), HIENA_PP_ARG_NAMES(TYPES)), HIENA_PP_ARG_NAMES(TYPES))
 
 #define HIENA_CHECKED_METHOD_NOARGS(RETTYPE, FUNCNAME) HIENA_CHECKED_METHOD_IMPL(RETTYPE, FUNCNAME,,())
 
@@ -126,9 +142,9 @@ namespace hiena::detail
         HIENA_CHECKED_METHOD(jobject, ToReflectedField, (jclass, jfieldID, jboolean))
         HIENA_CHECKED_METHOD(jint, Throw, (jthrowable))
         HIENA_CHECKED_METHOD(jint, ThrowNew, (jclass, const char*))
-        HIENA_CHECKED_METHOD_NOARGS(jthrowable, ExceptionOccurred)
-        HIENA_CHECKED_METHOD_NOARGS(void, ExceptionDescribe)
-        HIENA_CHECKED_METHOD_NOARGS(void, ExceptionClear)
+        HIENA_UNCHECKED_METHOD_NOARGS(jthrowable, ExceptionOccurred)
+        HIENA_UNCHECKED_METHOD_NOARGS(void, ExceptionDescribe)
+        HIENA_UNCHECKED_METHOD_NOARGS(void, ExceptionClear)
         HIENA_CHECKED_METHOD(void, FatalError, (const char*))
         HIENA_CHECKED_METHOD(jint, PushLocalFrame, (jint))
         HIENA_CHECKED_METHOD(jobject, PopLocalFrame, (jobject))
@@ -265,7 +281,7 @@ namespace hiena::detail
 
         HIENA_CHECKED_METHOD(jweak, NewWeakGlobalRef, (jobject))
         HIENA_CHECKED_METHOD(void, DeleteWeakGlobalRef, (jweak))
-        HIENA_CHECKED_METHOD_NOARGS(jboolean, ExceptionCheck)
+        HIENA_UNCHECKED_METHOD_NOARGS(jboolean, ExceptionCheck)
         HIENA_CHECKED_METHOD(jobject, NewDirectByteBuffer, (void*, jlong))
         HIENA_CHECKED_METHOD(void*, GetDirectBufferAddress, (jobject))
         HIENA_CHECKED_METHOD(jlong, GetDirectBufferCapacity, (jobject))

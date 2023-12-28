@@ -3,6 +3,7 @@
 #include <jni.h>
 #include <ostream>
 
+#include "Hiena/CheckedJniEnv.hpp"
 #include "Hiena/detail/FieldBase.hpp"
 #include "Hiena/utility/JniTraits.hpp"
 
@@ -42,20 +43,12 @@ namespace hiena
 			return Get();
 		}
 
-		T Get(JNIEnv* Env = nullptr)
+		T Get(CheckedJniEnv Env = {})
 		{
 			using namespace detail;
 			using JniType = LessSpecializedJniType<decltype(ToJniArgument(std::declval<T>(), nullptr))>;
 			jfieldID FieldID = GetFieldId(GetMangledName<T>(), Env);
-			if (CheckExceptionFast())
-			{
-				return  T{};
-			}
 			auto ret = FieldOps<JniType>::GetField(GetOwner(), FieldID, Env);
-			if (CheckException(Env))
-			{
-				return  T{};
-			}
 			if constexpr(IsJniObjectType<T>)
 			{
 				return T((typename T::SourceJniType)ret, LocalOwnership);
@@ -66,21 +59,15 @@ namespace hiena
 			}
 		}
 
-		void Set(const T& Value, JNIEnv* Env = nullptr)
+		void Set(const T& Value, CheckedJniEnv Env = {})
 		{
 			using namespace detail;
 			using JniType = LessSpecializedJniType<decltype(ToJniArgument(std::declval<T>(), nullptr))>;
-			Env = GetEnv(Env);
 			jfieldID FieldID = GetFieldId(GetMangledName<T>(), Env);
-			if (CheckExceptionFast())
-			{
-				return;
-			}
 			FieldOps<JniType>::SetField(GetOwner(), FieldID, ToJniArgument(Value, Env), Env);
-			CheckException(Env);
 		}
 
-		void Set(T&& Value, JNIEnv* Env = nullptr)
+		void Set(T&& Value, CheckedJniEnv Env = {})
 		{
 			Set((const T&)Value, Env);
 			if constexpr (IsJniObjectType<T>)
@@ -117,11 +104,10 @@ namespace hiena
 			return Get();
 		}
 
-		T Get(JNIEnv* Env = nullptr)
+		T Get(CheckedJniEnv Env = {})
 		{
 			using namespace detail;
 			using JniType = LessSpecializedJniType<decltype(ToJniArgument(std::declval<T>(), nullptr))>;
-			Env = GetEnv(Env);
 			jclass Clazz = GetStaticOwnerClass(Env);
 			jfieldID FieldID = GetStaticFieldId(Clazz, GetMangledName<T>(), Env);
 			auto ret = FieldOps<JniType>::GetStaticField(Clazz, FieldID, Env);
@@ -136,18 +122,17 @@ namespace hiena
 			}
 		}
 
-		void Set(const T& Value, JNIEnv* Env = nullptr)
+		void Set(const T& Value, CheckedJniEnv Env = {})
 		{
 			using namespace detail;
 			using JniType = LessSpecializedJniType<decltype(ToJniArgument(std::declval<T>(), nullptr))>;
-			Env = GetEnv(Env);
 			jclass Clazz = GetStaticOwnerClass(Env);
 			jfieldID FieldID = GetStaticFieldId(Clazz, GetMangledName<T>(), Env);
 			FieldOps<JniType>::SetStaticField(Clazz, FieldID, ToJniArgument(Value, Env), Env);
 			ReleaseStaticOwnerClass(Clazz, Env);
 		}
 
-		void Set(T&& Value, JNIEnv* Env = nullptr)
+		void Set(T&& Value, CheckedJniEnv Env = {})
 		{
 			Set((const T&)Value, Env);
 			if constexpr (IsJniObjectType<T>)

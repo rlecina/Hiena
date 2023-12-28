@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Hiena/Hiena.hpp"
+#include "Hiena/CheckedJniEnv.hpp"
 #include "Hiena/detail/JavaObjectBase.hpp"
 #include "Hiena/utility/Macros.hpp"
 
@@ -41,19 +41,19 @@ namespace hiena::detail
 		using SourceJniType = JniArrayTypeFor<T>;
 
 		JArrayBase() {}
-		explicit JArrayBase(SourceJniType Instance, JNIEnv* Env = nullptr)
-				: JavaObjectBase(Instance)
-					, Size(Instance ? GetEnv(Env)->GetArrayLength(Instance) : 0)
+		explicit JArrayBase(SourceJniType Instance, CheckedJniEnv Env = {})
+			: JavaObjectBase(Instance)
+			, Size(Instance ? Env->GetArrayLength(Instance) : 0)
 		{
 		}
 
-		explicit JArrayBase(SourceJniType Instance, LocalOwnership_t Tag, JNIEnv* Env = nullptr)
-				: JavaObjectBase(Instance, Tag)
-					, Size(Instance ? GetEnv(Env)->GetArrayLength(Instance) : 0)
+		explicit JArrayBase(SourceJniType Instance, LocalOwnership_t Tag, CheckedJniEnv Env = {})
+			: JavaObjectBase(Instance, Tag)
+			, Size(Instance ? Env->GetArrayLength(Instance) : 0)
 		{
 		}
 
-		friend SourceJniType ToJniArgument(const JArrayBase& Obj, JNIEnv*) { return Obj.GetInstance(); }
+		friend SourceJniType ToJniArgument(const JArrayBase& Obj, CheckedJniEnv) { return Obj.GetInstance(); }
 
 		jsize GetSize()
 		{
@@ -76,57 +76,25 @@ namespace hiena::detail
 	struct PrimitiveArrayOps<TYPE> \
 	{ \
 		using SourceJniType = JniArrayTypeFor<TYPE>; \
-		static SourceJniType NewArray(jsize Size, JNIEnv* Env = nullptr) \
+		static SourceJniType NewArray(jsize Size, CheckedJniEnv Env = {}) \
 		{ \
-			if (CheckExceptionFast()) \
-			{ \
-				return {};\
-			}\
-			Env = GetEnv(Env); \
-			SourceJniType Ret = Env->New##PRIMITIVE_TYPE##Array(Size); \
-			CheckException(Env); \
-			return Ret; \
+			return Env->New##PRIMITIVE_TYPE##Array(Size); \
 		} \
-		static TYPE* GetArrayElements(SourceJniType Obj, JNIEnv* Env = nullptr) \
+		static TYPE* GetArrayElements(SourceJniType Obj, CheckedJniEnv Env = {}) \
 		{ \
-			if (CheckExceptionFast()) \
-			{ \
-				return {};\
-			}\
-			Env = GetEnv(Env); \
-			TYPE* Ret = Env->Get##PRIMITIVE_TYPE##ArrayElements(Obj, nullptr); \
-			CheckException(Env); \
-			return Ret; \
+			return Env->Get##PRIMITIVE_TYPE##ArrayElements(Obj, nullptr); \
 		} \
-		static void ReleaseArrayElements(SourceJniType Obj, TYPE* Elems, jint Mode, JNIEnv* Env = nullptr) \
+		static void ReleaseArrayElements(SourceJniType Obj, TYPE* Elems, jint Mode, CheckedJniEnv Env = {}) \
 		{ \
-			if (CheckExceptionFast()) \
-			{ \
-				return;\
-			}\
-			Env = GetEnv(Env); \
 			Env->Release##PRIMITIVE_TYPE##ArrayElements(Obj, Elems, Mode); \
-			CheckException(Env); \
 		} \
-		static void GetArrayRegion(SourceJniType Obj, jsize start, jsize len, TYPE* Dst, JNIEnv* Env = nullptr) \
+		static void GetArrayRegion(SourceJniType Obj, jsize start, jsize len, TYPE* Dst, CheckedJniEnv Env = {}) \
 		{ \
-			if (CheckExceptionFast()) \
-			{ \
-				return;\
-			}\
-			Env = GetEnv(Env); \
 			Env->Get##PRIMITIVE_TYPE##ArrayRegion(Obj, start, len, Dst); \
-			CheckException(Env); \
 		} \
-		static void SetArrayRegion(SourceJniType Obj, jsize start, jsize len, const TYPE* Src, JNIEnv* Env = nullptr) \
+		static void SetArrayRegion(SourceJniType Obj, jsize start, jsize len, const TYPE* Src, CheckedJniEnv Env = {}) \
 		{ \
-			if (CheckExceptionFast()) \
-			{ \
-				return;\
-			}\
-			Env = GetEnv(Env); \
 			Env->Set##PRIMITIVE_TYPE##ArrayRegion(Obj, start, len, Src); \
-			CheckException(Env); \
 		} \
 	};
 

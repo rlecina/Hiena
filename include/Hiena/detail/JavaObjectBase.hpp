@@ -2,6 +2,8 @@
 
 #include <jni.h>
 #include <type_traits>
+
+#include "Hiena/CheckedJniEnv.hpp"
 #include "Hiena/meta/FieldCounter.hpp"
 
 namespace hiena
@@ -41,10 +43,10 @@ namespace hiena::detail
 		friend bool operator==(const JavaObjectBase& Lhs, nullptr_t) { return Lhs.Instance == nullptr; }
 		explicit operator bool() const { return Instance != nullptr; }
 
-		friend jobject ToJniArgument(const JavaObjectBase& Obj, JNIEnv*) { return Obj.Instance; }
+		friend jobject ToJniArgument(const JavaObjectBase& Obj, CheckedJniEnv) { return Obj.Instance; }
 
 		template <typename T>
-		friend T NewLocalRef(const T& Object, JNIEnv* Env )
+		friend T NewLocalRef(const T& Object, CheckedJniEnv Env )
 		{
 			static_assert(std::is_base_of_v<JavaObjectBase, T>, "Should be a java type");
 			using JniType = decltype(ToJniArgument(Object, Env));
@@ -57,7 +59,7 @@ namespace hiena::detail
 		}
 
 		template <typename T>
-		friend T NewGlobalRef(const T& Object, JNIEnv* Env)
+		friend T NewGlobalRef(const T& Object, CheckedJniEnv Env)
 		{
 			static_assert(std::is_base_of_v<JavaObjectBase, T>, "Should be a java type");
 			using JniType = decltype(ToJniArgument(Object, Env));
@@ -80,7 +82,8 @@ namespace hiena::detail
 		friend class FieldBase;
 
 		jobject GetInstance() const { return Instance; }
-		jclass GetOrInitClassInternal(JNIEnv* Env = nullptr) const;
+		jclass GetClassInternal() const { return Clazz; }
+		jclass GetOrInitClassInternal(CheckedJniEnv Env = {}) const;
 	private:
 		jobject Instance = nullptr;
 		mutable jclass Clazz = nullptr;

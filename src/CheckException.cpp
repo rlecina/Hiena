@@ -1,12 +1,11 @@
-#include "CheckException.hpp"
-#include "Hiena.hpp"
-#include "JavaLang.hpp"
+#include "Hiena/CheckException.hpp"
+#include "Hiena/JavaLang.hpp"
 
 namespace hiena
 {
 	LogExceptionHandler DefaultLogExceptionHandler = [](const java::lang::Throwable&, JNIEnv* Env)
 		{
-			Env->ExceptionDescribe();
+			CheckedJniEnv(Env)->ExceptionDescribe();
 		};
 
 	namespace
@@ -34,8 +33,8 @@ namespace hiena
 		{
 			return true;
 		}
-		
-		Env = GetEnv(Env);
+
+		Env = LowLevelGetEnv(Env);
 		if(Env->ExceptionCheck())
 		{
 			java::lang::Throwable Exception;

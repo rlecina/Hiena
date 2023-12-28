@@ -2,6 +2,7 @@
 
 #include <jni.h>
 
+#include "Hiena/CheckedJniEnv.hpp"
 #include "Hiena/CheckException.hpp"
 
 namespace java::lang
@@ -10,15 +11,16 @@ namespace java::lang
 }
 namespace hiena
 {
+	class CheckedJniEnv;
+
 	struct Config
 	{
+		const char* MainClass = nullptr;
 		jint JniVersion = JNI_VERSION_1_6;
 		ErrorHandlingConfig ErrorHandling;
 	};
 
-	[[nodiscard]] jint Initialize(JavaVM* Vm, const char* MainClass, Config InConfig);
+	[[nodiscard]] jint Initialize(JavaVM* Vm, Config InConfig);
 
-	[[nodiscard]] JNIEnv* GetEnv(JNIEnv* Env = nullptr);
-	[[nodiscard]] jclass LowLevelFindClass(const char* ClassName, JNIEnv* Env);
-	[[nodiscard]] java::lang::Class FindClass(const char* ClassName, JNIEnv* Env);
+	[[nodiscard]] java::lang::Class FindClass(const char* ClassName, CheckedJniEnv Env);
 }

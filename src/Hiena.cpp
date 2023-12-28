@@ -2,7 +2,9 @@
 
 #include "Hiena/JavaLang.hpp"
 
-#include "Hiena/detail/CheckedJniEnv.hpp"
+#include "Hiena/LowLevel.hpp"
+#include "Hiena/CheckedJniEnv.hpp"
+
 #include <pthread.h>
 
 namespace hiena
@@ -63,7 +65,7 @@ namespace
 		void SetupErrorHandling(ErrorHandlingConfig InConfig);
 	}
 
-	jint Initialize(JavaVM* Vm, const char* MainClass, Config InConfig)
+	jint Initialize(JavaVM* Vm, Config InConfig)
 	{
 		gVirtualMachine = Vm;
 		gJniVersion = InConfig.JniVersion;
@@ -75,33 +77,31 @@ namespace
 			return JNI_ERR;
 		}
 
-		JNIEnv *Env = GetEnv();
+		CheckedJniEnv Env;
 
 		if (!Env)
 		{
 			return JNI_ERR;
 		}
 
-		java::lang::Class ActivityClazz(Env->FindClass(MainClass));
-		if (CheckException(Env))
+		if (InConfig.MainClass)
 		{
-			return JNI_ERR;
+			java::lang::Class ActivityClazz(Env->FindClass(InConfig.MainClass));
+			if (ActivityClazz == nullptr)
+			{
+				return JNI_ERR;
+			}
+			gClassLoader = ActivityClazz.getClassLoader();
+			if (gClassLoader == nullptr)
+			{
+				return JNI_ERR;
+			}
+			gClassLoader = NewGlobalRef(gClassLoader, Env);
 		}
-		if (ActivityClazz == nullptr)
-		{
-			return JNI_ERR;
-		}
-		gClassLoader = ActivityClazz.getClassLoader();
-		if (gClassLoader == nullptr)
-		{
-			return JNI_ERR;
-		}
-		gClassLoader = NewGlobalRef(gClassLoader, Env);
-
 		return gJniVersion;
 	}
 
-	JNIEnv* GetEnv(JNIEnv* Env)
+	JNIEnv* LowLevelGetEnv(JNIEnv* Env)
 	{
 		if (Env != nullptr)
 		{
@@ -124,8 +124,6 @@ namespace
 
 	jclass LowLevelFindClass(const char* ClassName, JNIEnv* Env)
 	{
-		Env = GetEnv(Env);
-
 		if(jclass Clazz = Env->FindClass(ClassName))
 		{
 			return Clazz;
@@ -133,23 +131,20 @@ namespace
 
 		if(Env->ExceptionCheck())
 		{
-			Env->ExceptionClear();
-			java::lang::String Name(ClassName, Env);
 			if (gClassLoader)
 			{
+				Env->ExceptionClear();
+				java::lang::String Name(ClassName, Env);
 				java::lang::Class Clazz = gClassLoader.findClass(Name);
 				return (jclass)Env->NewLocalRef(ToJniArgument(Clazz, Env));
 			}
-			if (CheckException(Env))
-			{
-				return nullptr;
-			}
+			CheckException(Env);
 		}
 		return nullptr;
 	}
 
-	java::lang::Class FindClass(const char* ClassName, JNIEnv* Env)
+	java::lang::Class FindClass(const char* ClassName, CheckedJniEnv Env)
 	{
-		return java::lang::Class(LowLevelFindClass(ClassName, Env), LocalOwnership);
+		return java::lang::Class(LowLevelFindClass(ClassName, (JNIEnv*)Env), LocalOwnership);
 	}
 }

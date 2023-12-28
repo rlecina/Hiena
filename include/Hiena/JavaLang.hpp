@@ -2,6 +2,7 @@
 
 #include <string_view>
 
+#include "Hiena/CheckedJniEnv.hpp"
 #include "Hiena/JArray.hpp"
 #include "Hiena/utility/Macros.hpp"
 
@@ -18,7 +19,7 @@ namespace java::lang
 	public:
 		HIENA_CLASS_CONSTRUCTORS(Object, JavaObjectBase, jobject)
 
-		Class getClass(JNIEnv* Env = nullptr);
+		Class getClass(hiena::CheckedJniEnv Env = {});
 		ClassLoader getClassLoader();
 	};
 
@@ -41,10 +42,10 @@ namespace java::lang
 	public:
 		HIENA_CLASS_CONSTRUCTORS(String, Object, jstring)
 
-		String(const char* Text, JNIEnv* Env = nullptr);
+		String(const char* Text, hiena::CheckedJniEnv Env = {});
 		~String();
 
-		std::string_view ToCppString(JNIEnv* Env = nullptr);
+		std::string_view ToCppString(hiena::CheckedJniEnv Env = {});
 
 	private:
 		const char* Content = nullptr;

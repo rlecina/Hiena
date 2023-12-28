@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Hiena/CheckException.hpp"
+#include "Hiena/CheckedJniEnv.hpp"
+#include "Hiena/LowLevel.hpp"
 #include "Hiena/detail/JavaObjectBase.hpp"
 
 namespace hiena::detail
@@ -19,10 +20,12 @@ namespace hiena::detail
 		FieldBase(FieldBase&& Other) { }
 		FieldBase& operator=(const FieldBase& Other)
 		{
+			this->TryCopyFieldId(Other);
 			return *this;
 		}
 		FieldBase& operator=(FieldBase&& Other)
 		{
+			this->TryCopyFieldId(Other);
 			return *this;
 		}
 
@@ -39,16 +42,16 @@ namespace hiena::detail
 			return Owner->GetInstance();
 		}
 
-		jclass GetStaticOwnerClass(JNIEnv* Env)
+		jclass GetStaticOwnerClass(CheckedJniEnv Env)
 		{
 			if (Owner)
 			{
 				return Owner->GetOrInitClassInternal(Env);
 			}
-			return LowLevelFindClass(OwnerClassName, Env);
+			return LowLevelFindClass(OwnerClassName, (JNIEnv*)Env);
 		}
 
-		void ReleaseStaticOwnerClass(jclass Clazz, JNIEnv* Env)
+		void ReleaseStaticOwnerClass(jclass Clazz, CheckedJniEnv Env)
 		{
 			if (!Owner)
 			{
@@ -57,43 +60,23 @@ namespace hiena::detail
 		}
 
 
-		jfieldID GetFieldId(const char* Signature, JNIEnv* Env)
+		jfieldID GetFieldId(const char* Signature, CheckedJniEnv Env)
 		{
 			if (FieldId != 0)
 			{
 				return FieldId;
 			}
-			if (CheckExceptionFast())
-			{
-				return {};
-			}
-			Env = GetEnv(Env);
 			jclass Clazz = Owner->GetOrInitClassInternal(Env);
-			FieldId = Env->GetFieldID(Clazz, FieldName, Signature);
-			if (CheckException(Env))
-			{
-				return {};
-			}
-			return FieldId;
+			return FieldId = Env->GetFieldID(Clazz, FieldName, Signature);
 		}
 
-		jfieldID GetStaticFieldId(jclass Clazz, const char* Signature, JNIEnv* Env)
+		jfieldID GetStaticFieldId(jclass Clazz, const char* Signature, CheckedJniEnv Env)
 		{
 			if (FieldId != 0)
 			{
 				return FieldId;
 			}
-			if (CheckExceptionFast())
-			{
-				return {};
-			}
-			Env = GetEnv(Env);
-			FieldId = Env->GetStaticFieldID(Clazz, FieldName, Signature);
-			if (CheckException(Env))
-			{
-				return {};
-			}
-			return FieldId;
+			return Env->GetStaticFieldID(Clazz, FieldName, Signature);
 		}
 
 		void TryCopyFieldId(const FieldBase& Other)
@@ -102,11 +85,9 @@ namespace hiena::detail
 			{
 				if (std::string_view(FieldName) == std::string_view(Other.FieldName) )
 				{
-					JNIEnv* Env = GetEnv();
-					jclass OwnerClass = Owner->GetOrInitClassInternal(Env);
-					jclass OtherClass = Other.Owner->GetOrInitClassInternal(Env);
-					if (OwnerClass == OtherClass ||
-						Env->IsSameObject(OwnerClass,OtherClass))
+					jclass OwnerClass = Owner->GetClassInternal();
+					jclass OtherClass = Other.Owner->GetClassInternal();
+					if (OwnerClass == OtherClass)
 					{
 						FieldId = Other.FieldId;
 					}
@@ -126,49 +107,21 @@ namespace hiena::detail
 	template <>\
 	struct FieldOps<TYPE> \
 	{ \
-		static auto GetField(jobject Obj, jfieldID fieldId, JNIEnv* Env = nullptr) \
+		static auto GetField(jobject Obj, jfieldID fieldId, CheckedJniEnv Env = {}) \
 		{ \
-			if (CheckExceptionFast()) \
-			{ \
-				return CreateDefault<TYPE>(); \
-			} \
-			Env = GetEnv(Env); \
-			auto Ret = Env->Get##PRIMITIVE_TYPE##Field(Obj, fieldId); \
-			CheckException(Env); \
-			return Ret; \
+			return Env->Get##PRIMITIVE_TYPE##Field(Obj, fieldId); \
 		} \
-		static auto GetStaticField(jclass Clazz, jfieldID fieldId, JNIEnv* Env = nullptr) \
+		static auto GetStaticField(jclass Clazz, jfieldID fieldId, CheckedJniEnv Env = {}) \
 		{ \
-			if (CheckExceptionFast()) \
-			{ \
-				return CreateDefault<TYPE>(); \
-			} \
-			Env = GetEnv(Env); \
-			auto Ret = Env->GetStatic##PRIMITIVE_TYPE##Field(Clazz, fieldId); \
-			CheckException(Env); \
-			return Ret; \
+			return Env->GetStatic##PRIMITIVE_TYPE##Field(Clazz, fieldId); \
 		} \
-		static void SetField(jobject Obj, jfieldID fieldId, TYPE Value, JNIEnv* Env = nullptr) \
+		static void SetField(jobject Obj, jfieldID fieldId, TYPE Value, CheckedJniEnv Env = {}) \
 		{ \
-			if (CheckExceptionFast()) \
-			{ \
-				return; \
-			} \
-			Env = GetEnv(Env); \
 			Env->Set##PRIMITIVE_TYPE##Field(Obj, fieldId, Value); \
-			CheckException(Env); \
-			return; \
 		} \
-		static void SetStaticField(jclass Clazz, jfieldID fieldId, TYPE Value, JNIEnv* Env = nullptr) \
+		static void SetStaticField(jclass Clazz, jfieldID fieldId, TYPE Value, CheckedJniEnv Env = {}) \
 		{ \
-			if (CheckExceptionFast()) \
-			{ \
-				return; \
-			} \
-			Env = GetEnv(Env); \
 			Env->SetStatic##PRIMITIVE_TYPE##Field(Clazz, fieldId, Value); \
-			CheckException(Env); \
-			return; \
 		} \
 	};
 

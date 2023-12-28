@@ -3,6 +3,7 @@
 #include <memory>
 #include <utility>
 
+#include "Hiena/CheckedJniEnv.hpp"
 #include "Hiena/detail/JArrayBase.hpp"
 #include "Hiena/utility/JniTraits.hpp"
 
@@ -19,28 +20,16 @@ namespace hiena
 
 			HIENA_CLASS_CONSTRUCTORS_ARRAY(JObjectArray, JArrayBase<T>, typename JArrayBase<T>::SourceJniType)
 
-			ValueType GetAt(jsize Idx, JNIEnv* Env = nullptr)
+			ValueType GetAt(jsize Idx, CheckedJniEnv Env = {})
 			{
 				ValueType Ret;
-				Env = GetEnv(Env);
-				if (CheckExceptionFast())
-				{
-					return {};
-				}
 				Ret = Env->GetObjectArrayElement(this->GetInstance(),Idx);
-				CheckException(Env);
 				return Ret;
 			}
 
-			void SetAt(jsize Idx, const T& Obj, JNIEnv* Env = nullptr)
+			void SetAt(jsize Idx, const T& Obj, CheckedJniEnv Env = {})
 			{
-				Env = GetEnv(Env);
-				if (CheckExceptionFast())
-				{
-					return;
-				}
-				GetEnv(Env)->SetObjectArrayElement(this->GetInstance(), Idx, ToJniArgument(Obj, Env));
-				CheckException(Env);
+				Env->SetObjectArrayElement(this->GetInstance(), Idx, ToJniArgument(Obj, Env));
 			}
 		};
 
@@ -54,12 +43,12 @@ namespace hiena
 
 			JPrimitiveArray() {}
 
-			explicit JPrimitiveArray(SourceJniType Instance, JNIEnv* Env = nullptr)
+			explicit JPrimitiveArray(SourceJniType Instance, CheckedJniEnv Env = {})
 			: JArrayBase<T>(Instance, Env)
 			{
 			}
 
-			JPrimitiveArray(SourceJniType Instance, LocalOwnership_t Tag, JNIEnv* Env = nullptr)
+			JPrimitiveArray(SourceJniType Instance, LocalOwnership_t Tag, CheckedJniEnv Env = {})
 			: JArrayBase<T>(Instance, Tag)
 			{
 			}
@@ -103,19 +92,19 @@ namespace hiena
 				Release();
 			}
 
-			friend SourceJniType ToJniArgument(const JPrimitiveArray& Obj, JNIEnv* Env)
+			friend SourceJniType ToJniArgument(const JPrimitiveArray& Obj, CheckedJniEnv Env)
 			{
 				Obj.Commit(Env);
 				return Obj.GetInstance();
 			}
 
-			ValueType GetAt(jsize Idx, JNIEnv* Env = nullptr)
+			ValueType GetAt(jsize Idx, CheckedJniEnv Env = {})
 			{
 				LoadRange(Env);
 				return StoredRange[Idx];
 			}
 
-			void SetAt(jsize Idx, ValueType Value, JNIEnv* Env = nullptr)
+			void SetAt(jsize Idx, ValueType Value, CheckedJniEnv Env = {})
 			{
 				LoadRange(Env);
 				StoredRange[Idx] = Value;
@@ -124,7 +113,7 @@ namespace hiena
 			ValueType* StoredRange = nullptr;
 			std::shared_ptr<Empty_t> SharedCount;
 
-			void LoadRange(JNIEnv* Env)
+			void LoadRange(CheckedJniEnv Env)
 			{
 				if (StoredRange == nullptr)
 				{
@@ -132,7 +121,7 @@ namespace hiena
 					SharedCount = std::make_shared<Empty_t>();
 				}
 			}
-			void Commit(JNIEnv* Env) const
+			void Commit(CheckedJniEnv Env) const
 			{
 				if (StoredRange)
 				{
@@ -144,7 +133,7 @@ namespace hiena
 			{
 				if (StoredRange && SharedCount.use_count() == 1)
 				{
-					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), StoredRange, 0, GetEnv());
+					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), StoredRange, 0);
 				}
 				StoredRange = nullptr;
 				SharedCount = nullptr;
