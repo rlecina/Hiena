@@ -1,8 +1,8 @@
-#The Hiena library
+# The Hiena library
 
-##That savage ugly dog that will make JNI easy with a smile on his face
+## That savage ugly dog that will make JNI easy with a smile on his face
 
-###Description
+### Description
 
 Hiena is a C++ library wrapper to simplify JNI
 
@@ -91,7 +91,7 @@ java::lang::String Result = MyNewInstance.DoSomethingUseful(Arg);
 
 ```
 
-###Current state
+### Current state
 
 Hiena currently supports:
  - Invoking static methods
