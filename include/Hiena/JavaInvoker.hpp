@@ -16,25 +16,25 @@ namespace hiena
 {
 	namespace detail
 	{
-	#define HIENA_INVOKE_BLOCK(TYPE, FUNC, ...) \
-				if constexpr (std::is_same_v<Ret, TYPE>) \
+#define HIENA_INVOKE_BLOCK(TYPE, FUNC, ...) \
+			if constexpr (std::is_same_v<Ret, TYPE>) \
+			{ \
+				if constexpr (std::is_same_v<Ret, void>) \
 				{ \
-					if constexpr (std::is_same_v<Ret, void>) \
-					{ \
-						va_list list; \
-						va_start(list, MethodID); \
-						Env->FUNC##MethodV(__VA_ARGS__, MethodID, list); \
-						va_end(list); \
-					} \
-					else \
-					{ \
-						va_list list; \
-						va_start(list, MethodID); \
-						Ret R =  Env->FUNC##MethodV(__VA_ARGS__, MethodID, list); \
-						va_end(list); \
-						return R; \
-					} \
-				}
+					va_list list; \
+					va_start(list, MethodID); \
+					Env->FUNC##MethodV(__VA_ARGS__, MethodID, list); \
+					va_end(list); \
+				} \
+				else \
+				{ \
+					va_list list; \
+					va_start(list, MethodID); \
+					Ret R =  Env->FUNC##MethodV(__VA_ARGS__, MethodID, list); \
+					va_end(list); \
+					return R; \
+				} \
+			}
 
 		template <typename Ret>
 		struct InvokerDetail
@@ -162,8 +162,8 @@ namespace hiena
 			return R;
 		}
 
-		template <typename T, typename... Args>
-		static Ret Invoke(T* Instance, java::lang::Class Clazz, const Args&... Arg)
+		template <typename T, typename C, typename... Args>
+		static Ret NonvirtualInvoke(T* Instance, const C& Clazz, const Args&... Arg)
 		{
 			static_assert(std::is_invocable_v<FuncType, T*, Args...>, "Arguments in wrong order");
 			using namespace detail;

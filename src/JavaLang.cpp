@@ -1,5 +1,6 @@
 #include "Hiena/JavaLang.hpp"
 #include "Hiena/JavaInvoker.hpp"
+#include "Hiena/utility/ImplementationMacros.hpp"
 
 namespace java::lang
 {
@@ -10,50 +11,24 @@ namespace java::lang
 		return java::lang::Class(GetOrInitClassInternal(Env));
 	}
 
-	ClassLoader Object::getClassLoader()
-	{
-		return hiena::JavaInvoker<&Object::getClassLoader>::Invoke(this);
-	}
+	HIENA_IMPLEMENT_METHOD_NOARG(ClassLoader, Object::getClassLoader)
 
-	Class ClassLoader::findClass(String Classname)
-	{
-		return hiena::JavaInvoker<&ClassLoader::findClass>::Invoke(this, Classname);
-	}
+	HIENA_IMPLEMENT_METHOD(Class, ClassLoader::findClass, (String))
 
 	String::String(const char* Text, hiena::CheckedJniEnv Env)
 	: Object(Env->NewStringUTF(Text), hiena::LocalOwnership)
 	{
 	}
 
-	String::~String()
+	std::string String::ToCppString(hiena::CheckedJniEnv Env)
 	{
-		if (*this && Content)
-		{
-			hiena::CheckedJniEnv Env;
-			Env->ReleaseStringUTFChars(ToJniArgument(*this, Env), Content);
-		}
+		const char* Content = Env->GetStringUTFChars((jstring)GetInstance(), nullptr);
+		std::string Ret = Content;
+		Env->ReleaseStringUTFChars(ToJniArgument(*this, Env), Content);
+		return Ret;
 	}
 
-	std::string_view String::ToCppString(hiena::CheckedJniEnv Env)
-	{
-		if (Content)
-		{
-			return Content;
-		}
-		else
-		{
-			Content = Env->GetStringUTFChars(ToJniArgument(*this, Env), nullptr);
-		}
-		return Content;
-	}
+	HIENA_IMPLEMENT_STATIC_METHOD(String, String::valueOf, (Object))
 
-	String String::valueOf(Object obj)
-	{
-		return hiena::JavaInvoker<&String::valueOf>::StaticInvoke(obj);
-	}
-
-	String Throwable::getMessage()
-	{
-		return hiena::JavaInvoker<&Throwable::getMessage>::Invoke(this);
-	}
+	HIENA_IMPLEMENT_METHOD_NOARG(String, Throwable::getMessage)
 }

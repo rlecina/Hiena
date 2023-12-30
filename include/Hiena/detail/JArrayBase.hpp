@@ -2,7 +2,7 @@
 
 #include "Hiena/CheckedJniEnv.hpp"
 #include "Hiena/detail/JavaObjectBase.hpp"
-#include "Hiena/utility/Macros.hpp"
+#include "Hiena/utility/ClassMacros.hpp"
 
 namespace hiena::detail
 {

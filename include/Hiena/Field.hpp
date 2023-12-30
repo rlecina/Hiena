@@ -2,7 +2,7 @@
 
 #include <jni.h>
 
-#include "Hiena/CheckedJniEnv.hpp"
+#include "Hiena/JavaInvoker.hpp"
 #include "Hiena/detail/FieldBase.hpp"
 #include "Hiena/utility/JniTraits.hpp"
 

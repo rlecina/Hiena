@@ -17,8 +17,24 @@ namespace hiena
 			static_assert(IsJniObjectType<T>, "Unsupported type");
 		public:
 			using ValueType = typename JArrayBase<T>::ValueType;
+			using SourceJniType = typename JArrayBase<T>::SourceJniType;
 
-			HIENA_CLASS_CONSTRUCTORS_ARRAY(JObjectArray, JArrayBase<T>, typename JArrayBase<T>::SourceJniType)
+			JObjectArray() {}
+			explicit JObjectArray(SourceJniType Instance)
+				:JArrayBase<T>((SourceJniType)Instance) {}
+			JObjectArray(SourceJniType Instance, hiena::LocalOwnership_t Tag)
+				:JArrayBase<T>((SourceJniType)Instance, Tag) {}
+			JObjectArray(const JObjectArray& Other)
+				:JArrayBase<T>(Other) {}
+			JObjectArray(JObjectArray&& Other)
+				:JArrayBase<T>(Other) {}
+			JObjectArray& operator=(JObjectArray&& Rhs) = default;
+			JObjectArray& operator=(const JObjectArray& Rhs) = default;
+
+			friend SourceJniType ToJniArgument(const JObjectArray& Obj, hiena::CheckedJniEnv Env)
+			{
+				return (SourceJniType)Obj.GetInstance();
+			}
 
 			ValueType GetAt(jsize Idx, CheckedJniEnv Env = {})
 			{
@@ -95,7 +111,7 @@ namespace hiena
 			friend SourceJniType ToJniArgument(const JPrimitiveArray& Obj, CheckedJniEnv Env)
 			{
 				Obj.Commit(Env);
-				return Obj.GetInstance();
+				return (SourceJniType)Obj.GetInstance();
 			}
 
 			ValueType GetAt(jsize Idx, CheckedJniEnv Env = {})

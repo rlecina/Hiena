@@ -1,10 +1,11 @@
 #pragma once
 
-#include <string_view>
+#include <string>
 
-#include "Hiena/CheckedJniEnv.hpp"
+#include "Hiena/detail/JavaObjectBase.hpp"
+#include "Hiena/Field.hpp"
 #include "Hiena/JArray.hpp"
-#include "Hiena/utility/Macros.hpp"
+#include "Hiena/utility/ClassMacros.hpp"
 
 namespace java::lang
 {
@@ -27,6 +28,11 @@ namespace java::lang
 	{
 	public:
 		HIENA_CLASS_CONSTRUCTORS(Class, Object, jclass)
+
+		friend jclass ToJniArgument(const Class& Obj, hiena::CheckedJniEnv)
+		{
+			return (jclass)Obj.GetInstance();
+		}
 	};
 
 	class ClassLoader : public Object
@@ -34,7 +40,7 @@ namespace java::lang
 	public:
 		HIENA_CLASS_CONSTRUCTORS(ClassLoader, Object, jobject)
 
-		Class findClass(String Classname);
+		Class findClass(const String& Classname);
 	};
 
 	class String : public Object
@@ -43,13 +49,15 @@ namespace java::lang
 		HIENA_CLASS_CONSTRUCTORS(String, Object, jstring)
 
 		explicit String(const char* Text, hiena::CheckedJniEnv Env = {});
-		~String();
 
-		std::string_view ToCppString(hiena::CheckedJniEnv Env = {});
+		friend jstring ToJniArgument(const String& Obj, hiena::CheckedJniEnv)
+		{
+			return (jstring)Obj.GetInstance();
+		}
 
-		static String valueOf(Object obj);
-	private:
-		const char* Content = nullptr;
+		std::string ToCppString(hiena::CheckedJniEnv Env = {});
+
+		static String valueOf(const Object& obj);
 	};
 
 	class Throwable : public Object
@@ -57,6 +65,11 @@ namespace java::lang
 	public:
 		HIENA_CLASS_CONSTRUCTORS(Throwable, Object, jthrowable)
 
-		String 	getMessage();
+		friend jthrowable ToJniArgument(const Throwable& Obj, hiena::CheckedJniEnv)
+		{
+			return (jthrowable)Obj.GetInstance();
+		}
+
+		String getMessage();
 	};
 }
