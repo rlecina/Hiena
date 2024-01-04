@@ -227,6 +227,7 @@ Hiena currently supports:
 
 ### Still TO-DO
  - Add class check on constructor with a jobject (jobject should represent a compatible object)
+ - More complete set of Java types (currently just the bare minimum are added)
  - Add examples
  - Documentation
  - Add tests
