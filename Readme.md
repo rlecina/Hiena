@@ -4,7 +4,7 @@
 
 ### Description
 
-Hiena is a C++ library wrapper to simplify replicating Java classes to be used through JNI
+Hiena is a C++20 library wrapper to simplify replicating Java classes to be used through JNI
 
 The idea is to allow the C++ preprocessor and compiler to generate bindings to Java classes by just providing simple C++ class definition counterparts to Java classes
 
