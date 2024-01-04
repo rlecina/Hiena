@@ -104,19 +104,6 @@ namespace hiena::detail
 		static_assert(AlwaysFalse<T>, "Unsupported type");
 	};
 
-	template <typename T, typename F>
-	F InitFields(T* Owner, F& Fields)
-	{
-		static_assert(IsJniObjectType<T>, "Invalid Field owner");
-		auto Tuple = ToTuple(Fields);
-		auto Names = GetFieldNames<F>();
-		IndexedTupleFor(Tuple, [&](size_t Idx, auto& Field)
-			{
-			Field.Setup(Owner, GetJavaClassName<T>(), Names[Idx]);
-			});
-		return {};
-	}
-
 #define HIENA_SETUP_FIELD_OPS(TYPE, PRIMITIVE_TYPE) \
 	template <>\
 	struct FieldOps<TYPE> \

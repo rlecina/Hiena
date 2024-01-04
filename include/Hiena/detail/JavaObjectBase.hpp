@@ -15,16 +15,12 @@ namespace hiena
 	struct JavaInvoker;
 }
 
-namespace hiena::detail
+namespace hiena
 {
-	class FieldBase;
-
-	enum class JavaRefType
+	namespace detail
 	{
-		Ignored,
-		OwningLocalRef,
-		OwningGlobalRef
-	};
+		class FieldBase;
+	}
 
 	class JavaObjectBase
 	{
@@ -79,12 +75,19 @@ namespace hiena::detail
 		template <auto>
 		friend struct hiena::JavaInvoker;
 
-		friend class FieldBase;
+		friend class hiena::detail::FieldBase;
 
 		jobject GetInstance() const { return Instance; }
 		jclass GetClassInternal() const { return Clazz; }
 		jclass GetOrInitClassInternal(CheckedJniEnv Env = {}) const;
 	private:
+		enum class JavaRefType
+		{
+			Ignored,
+			OwningLocalRef,
+			OwningGlobalRef
+		};
+
 		jobject Instance = nullptr;
 		mutable jclass Clazz = nullptr;
 		JavaRefType InstanceRefType = JavaRefType::Ignored;

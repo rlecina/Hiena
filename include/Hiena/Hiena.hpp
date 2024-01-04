@@ -21,6 +21,5 @@ namespace hiena
 	};
 
 	[[nodiscard]] jint Initialize(JavaVM* Vm, Config InConfig);
-
 	[[nodiscard]] java::lang::Class FindClass(const char* ClassName, CheckedJniEnv Env);
 }

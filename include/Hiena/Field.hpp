@@ -8,6 +8,19 @@
 
 namespace hiena
 {
+	template <typename T, typename F>
+	F InitFields(T* Owner, F& Fields)
+	{
+		static_assert(IsJniObjectType<T>, "Invalid Field owner");
+		auto Tuple = ToTuple(Fields);
+		auto Names = GetFieldNames<F>();
+		IndexedTupleFor(Tuple, [&](size_t Idx, auto& Field)
+			{
+			Field.Setup(Owner, GetJavaClassName<T>(), Names[Idx]);
+			});
+		return {};
+	}
+
 	template <typename T>
 	class Field: public detail::FieldBase
 	{

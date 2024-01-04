@@ -38,7 +38,6 @@ We just need to provide the following class on C++
 TestClass.hpp:
 ```C++
 #include "Hiena/JavaLang.hpp"
-#include "Hiena/utility/ClassMacros.hpp"
 
 namespace com::example::jnitest
 {

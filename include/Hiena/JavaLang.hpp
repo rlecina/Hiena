@@ -15,10 +15,10 @@ namespace java::lang
 	class String;
 	class Throwable;
 
-	class Object : public hiena::detail::JavaObjectBase
+	class Object : public hiena::JavaObjectBase
 	{
 	public:
-		HIENA_CLASS_CONSTRUCTORS(Object, JavaObjectBase, jobject)
+		HIENA_CLASS_CONSTRUCTORS(Object, JavaObjectBase)
 
 		Class getClass(hiena::CheckedJniEnv Env = {});
 		ClassLoader getClassLoader();
@@ -27,7 +27,7 @@ namespace java::lang
 	class Class : public Object
 	{
 	public:
-		HIENA_CLASS_CONSTRUCTORS(Class, Object, jclass)
+		HIENA_CLASS_CONSTRUCTORS_EX(Class, Object, jclass)
 
 		friend jclass ToJniArgument(const Class& Obj, hiena::CheckedJniEnv)
 		{
@@ -38,7 +38,7 @@ namespace java::lang
 	class ClassLoader : public Object
 	{
 	public:
-		HIENA_CLASS_CONSTRUCTORS(ClassLoader, Object, jobject)
+		HIENA_CLASS_CONSTRUCTORS(ClassLoader, Object)
 
 		Class findClass(const String& Classname);
 	};
@@ -46,7 +46,7 @@ namespace java::lang
 	class String : public Object
 	{
 	public:
-		HIENA_CLASS_CONSTRUCTORS(String, Object, jstring)
+		HIENA_CLASS_CONSTRUCTORS_EX(String, Object, jstring)
 
 		explicit String(const char* Text, hiena::CheckedJniEnv Env = {});
 
@@ -55,15 +55,15 @@ namespace java::lang
 			return (jstring)Obj.GetInstance();
 		}
 
-		std::string ToCppString(hiena::CheckedJniEnv Env = {});
-
 		static String valueOf(const Object& obj);
 	};
+
+	std::string ToCppString(const String& Str, hiena::CheckedJniEnv Env = {});
 
 	class Throwable : public Object
 	{
 	public:
-		HIENA_CLASS_CONSTRUCTORS(Throwable, Object, jthrowable)
+		HIENA_CLASS_CONSTRUCTORS_EX(Throwable, Object, jthrowable)
 
 		friend jthrowable ToJniArgument(const Throwable& Obj, hiena::CheckedJniEnv)
 		{

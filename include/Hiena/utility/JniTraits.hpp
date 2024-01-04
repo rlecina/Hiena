@@ -33,7 +33,7 @@ namespace hiena
 			std::is_same_v<jdoubleArray, T>;
 
 	template <typename T>
-	inline constexpr bool IsJniObjectType = std::is_base_of_v<detail::JavaObjectBase, T>;
+	inline constexpr bool IsJniObjectType = std::is_base_of_v<JavaObjectBase, T>;
 
 	namespace detail
 	{

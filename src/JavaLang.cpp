@@ -13,22 +13,23 @@ namespace java::lang
 
 	HIENA_IMPLEMENT_METHOD_NOARG(ClassLoader, Object::getClassLoader)
 
-	HIENA_IMPLEMENT_METHOD(Class, ClassLoader::findClass, (String))
+	HIENA_IMPLEMENT_METHOD(Class, ClassLoader::findClass, (const String&))
 
 	String::String(const char* Text, hiena::CheckedJniEnv Env)
 	: Object(Env->NewStringUTF(Text), hiena::LocalOwnership)
 	{
 	}
 
-	std::string String::ToCppString(hiena::CheckedJniEnv Env)
+	std::string ToCppString(const String& Str, hiena::CheckedJniEnv Env)
 	{
-		const char* Content = Env->GetStringUTFChars((jstring)GetInstance(), nullptr);
+		jstring Instance = ToJniArgument(Str, Env);
+		const char* Content = Env->GetStringUTFChars(Instance, nullptr);
 		std::string Ret = Content;
-		Env->ReleaseStringUTFChars(ToJniArgument(*this, Env), Content);
+		Env->ReleaseStringUTFChars(Instance, Content);
 		return Ret;
 	}
 
-	HIENA_IMPLEMENT_STATIC_METHOD(String, String::valueOf, (Object))
+	HIENA_IMPLEMENT_STATIC_METHOD(String, String::valueOf, (const Object&))
 
 	HIENA_IMPLEMENT_METHOD_NOARG(String, Throwable::getMessage)
 }

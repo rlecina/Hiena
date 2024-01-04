@@ -2,7 +2,7 @@
 
 #include <utility>
 
-namespace hiena::detail
+namespace hiena
 {
 	JavaObjectBase::JavaObjectBase(jobject Instance)
 	: Instance(Instance)
