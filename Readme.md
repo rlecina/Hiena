@@ -203,7 +203,7 @@ java::lang::String Arg("Hellow World!");
 java::lang::String Result = MyNewInstance.DoSomethingUseful(Arg);
 
 // Create a new array and set its element
-hiena::JArray<java::lang::string> JavaArray = hiena::NewObjectArray<java::lang::string>(1);
+hiena::JArray<java::lang::String> JavaArray = hiena::NewObjectArray<java::lang::String>(1);
 JavaArray.SetAt(0,Arg);
 
 jint Result2 = MyNewInstance.StaticDoSomethingElseUseful(JavaArray);
