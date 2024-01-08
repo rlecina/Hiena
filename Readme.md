@@ -220,14 +220,15 @@ Hiena currently supports:
  - Access to static primitive fields
  - Access to object type fields
  - Access to static object type fields
- - Arrays (both of promitive types and object types)
+ - Arrays (both of primitive types and object types)
  - Local/Global reference ownership: By default C++ instances work as thin wrappers. 
    - There is a constructor that takes local reference ownership
-   - There are methods to create new local an global references. Those references are released on the destructor
+   - There are methods to create new local an global references. Those references are released on destruction
 
 ### Still TO-DO
  - Add class check on constructor with a jobject (jobject should represent a compatible object)
- - More complete set of Java types (currently just the bare minimum are added)
+ - Probably it would be useful to always store the instance class instead of loading it on demand 
+ - More complete set of Java types (currently just the bare minimum have been added)
  - Add examples
  - Documentation
  - Add tests
