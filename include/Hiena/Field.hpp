@@ -15,9 +15,9 @@ namespace hiena
 		auto Tuple = ToTuple(Fields);
 		auto Names = GetFieldNames<F>();
 		IndexedTupleFor(Tuple, [&](size_t Idx, auto& Field)
-			{
-			Field.Setup(Owner, GetJavaClassName<T>(), Names[Idx]);
-			});
+							  	{
+									Field.Setup(Owner, GetJavaClassName<T>(), Names[Idx]);
+								});
 		return {};
 	}
 

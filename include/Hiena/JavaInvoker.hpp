@@ -194,28 +194,26 @@ namespace hiena
 		return R(Ret, LocalOwnership);
 	}
 
-	template <typename Ret>
-	Ret NewPrimitiveArray(jsize Size, CheckedJniEnv Env = nullptr)
+	template <typename PrimitiveType>
+	JArray<PrimitiveType> NewPrimitiveArray(jsize Size, CheckedJniEnv Env = nullptr)
 	{
 		using namespace detail;
-		static_assert(IsJArrayType<Ret>, "Should be an array");
-		static_assert(IsJniPrimitiveType<typename Ret::ValueType>, "Should be a primitive type");
+		static_assert(IsJniPrimitiveType<PrimitiveType>, "Should be a primitive type");
 
-		auto R = detail::PrimitiveArrayOps<typename Ret::ValueType>::NewArray(Size, Env);
-		return Ret((typename Ret::SourceJniType)R, LocalOwnership);
+		auto Instance = detail::PrimitiveArrayOps<PrimitiveType>::NewArray(Size, Env);
+		return JArray<PrimitiveType>((typename JArray<PrimitiveType>::SourceJniType)Instance, LocalOwnership);
 	}
 
-	template <typename Ret>
-	Ret NewObjectArray(jsize Size, typename Ret::ValueType Init = {}, CheckedJniEnv Env = nullptr)
+	template <typename ObjectType>
+	JArray<ObjectType> NewObjectArray(jsize Size, ObjectType Init = {}, CheckedJniEnv Env = nullptr)
 	{
 		using namespace detail;
-		static_assert(IsJArrayType<Ret>, "Should be an array");
-		static_assert(!IsJniPrimitiveType<typename Ret::ValueType>, "Should be a primitive type");
+		static_assert(!IsJniPrimitiveType<ObjectType>, "Should be a primitive type");
 
-		constexpr const char* ClassName = GetJavaClassName<typename Ret::ValueType>();
+		constexpr const char* ClassName = GetJavaClassName<ObjectType>();
 		jclass Clazz = LowLevelFindClass(ClassName, (JNIEnv*)Env);
-		auto R = Env->NewObjectArray(Size, Clazz, ToJniArgument(Init, Env));
+		auto Instance = Env->NewObjectArray(Size, Clazz, ToJniArgument(Init, Env));
 		Env->DeleteLocalRef(Clazz);
-		return Ret((typename Ret::SourceJniType)R, LocalOwnership);
+		return JArray<ObjectType>((jobjectArray)Instance, LocalOwnership);
 	}
 }
