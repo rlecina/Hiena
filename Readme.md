@@ -13,7 +13,7 @@ The idea is to allow the C++ preprocessor and compiler to generate bindings to J
 Given the Java class
 
 ```Java
-package com.hiena.example;
+package com.example.testapp;
 
 public class TestClass {
     String DoSomethingUseful(String Input) {
@@ -29,7 +29,7 @@ TestClass.hpp:
 ```C++
 #include "Hiena/JavaLang.hpp"
 
-namespace com::hiena::example
+namespace com::example::testapp
 {
     class TestClass : public java::lang::Object
     {
@@ -46,7 +46,7 @@ Test.cpp
 ```C++
 #include "TestClass.hpp"
 
-namespace com::hiena::example
+namespace com::example::testapp
 {
     TestClass::TestClass(jobject Instance)
         :java::lang::Object(Instance)
@@ -64,9 +64,9 @@ namespace com::hiena::example
 You can then create an instance of the C++ class passing in a jobject received from a Java native method and invoke Java methods direclty from C++ without dealing with any mangling
 
 ```C++
-JNIEXPORT void JNICALL Java_com_hiena_example_SomeOtherClass_nativeMethod(JNIEnv*, jobject Thiz, jobject TestClassInstance)
+JNIEXPORT void JNICALL Java_com_example_testapp_SomeOtherClass_nativeMethod(JNIEnv*, jobject Thiz, jobject TestClassInstance)
 {
-    com::hiena::example::TestClass Instance(TestClassInstance);
+    com::example::testapp::TestClass Instance(TestClassInstance);
 
     // Creates a new Java string
     java::lang::String Hello("Hello World!");
@@ -84,7 +84,7 @@ TestClass.hpp:
 ```C++
 #include "Hiena/JavaLang.hpp"
 
-namespace com::hiena::example
+namespace com::example::testapp
 {
     class TestClass : public java::lang::Object
     {
@@ -101,7 +101,7 @@ TestClass.cpp:
 #include "TestClass.hpp"
 #include "Hiena/utility/ImplementationMacros.hpp"
 
-namespace com::hiena::example
+namespace com::example::testapp
 {
     HIENA_IMPLEMENT_METHOD(java::lang::String, TestClass::DoSomethinUseful, (const java::lang::String&))
 }
@@ -142,7 +142,7 @@ TestClass.hpp:
 ```C++
 #include "Hiena/JavaLang.hpp"
 
-namespace com::hiena::example
+namespace com::example::testapp
 {
     class TestClass : public java::lang::Object
     {
@@ -171,7 +171,7 @@ TestClass.cpp:
 #include "TestClass.hpp"
 #include "Hiena/utility/ImplementationMacros.hpp"
 
-namespace com::hiena::example
+namespace com::example::testapp
 {
     TestClass::TestClass(hiena::CreateNew_t)
         :TestClass(hiena::NewObject<TestClass>())
