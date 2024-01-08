@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Hiena/CheckedJniEnv.hpp"
-#include "Hiena/detail/SignatureComposer.hpp"
 #include "Hiena/LowLevel.hpp"
 #include "Hiena/detail/JavaObjectBase.hpp"
 

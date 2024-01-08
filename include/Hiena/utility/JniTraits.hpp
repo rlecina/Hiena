@@ -59,4 +59,7 @@ namespace hiena
 																		std::remove_pointer_t<T>>,
 														jobject,
 														T>;
+
+	template <typename T>
+	std::enable_if_t<IsJniRegularPrimitiveType<T>,T> ToJniArgument(T Arg, CheckedJniEnv) { return Arg; }
 }

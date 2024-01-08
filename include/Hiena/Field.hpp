@@ -2,8 +2,8 @@
 
 #include <jni.h>
 
-#include "Hiena/JavaInvoker.hpp"
 #include "Hiena/detail/FieldBase.hpp"
+#include "Hiena/detail/SignatureComposer.hpp"
 #include "Hiena/utility/JniTraits.hpp"
 
 namespace hiena

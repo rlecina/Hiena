@@ -124,9 +124,6 @@ namespace hiena
 		};
 #undef HIENA_INVOKE_BLOCK
 }
-	template <typename T>
-	std::enable_if_t<IsJniRegularPrimitiveType<T>,T> ToJniArgument(T Arg, CheckedJniEnv) { return Arg; }
-
 	template <auto Func>
 	struct JavaInvoker
 	{

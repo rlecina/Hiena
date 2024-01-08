@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Hiena/JavaInvoker.hpp"
+
 #define HIENA_IMPLEMENT_METHOD_IMPL(RETTYPE, FUNCNAME, TYPEARGS, ARGS) \
 	RETTYPE FUNCNAME(TYPEARGS) { return ::hiena::JavaInvoker<&FUNCNAME>::Invoke(this, HIENA_PP_UNPACK ARGS); }
 
