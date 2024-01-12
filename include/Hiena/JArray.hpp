@@ -38,9 +38,7 @@ namespace hiena
 
 			ValueType GetAt(jsize Idx, CheckedJniEnv Env = {})
 			{
-				ValueType Ret;
-				Ret = Env->GetObjectArrayElement(this->GetInstance(),Idx);
-				return Ret;
+				return Env->GetObjectArrayElement(this->GetInstance(),Idx);
 			}
 
 			void SetAt(jsize Idx, const T& Obj, CheckedJniEnv Env = {})
@@ -57,15 +55,17 @@ namespace hiena
 			using ValueType = typename JArrayBase<T>::ValueType;
 			using SourceJniType = typename JArrayBase<T>::SourceJniType;
 
-			JPrimitiveArray() {}
+			JPrimitiveArray() = default;
 
 			explicit JPrimitiveArray(SourceJniType Instance, CheckedJniEnv Env = {})
 			: JArrayBase<T>(Instance, Env)
+			, SharedState(std::make_shared<State>())
 			{
 			}
 
 			JPrimitiveArray(SourceJniType Instance, LocalOwnership_t Tag, CheckedJniEnv Env = {})
 			: JArrayBase<T>(Instance, Tag)
+			, SharedState(std::make_shared<State>())
 			{
 			}
 
@@ -85,8 +85,7 @@ namespace hiena
 				{
 					Release();
 					JArrayBase<ValueType>::operator=(std::move(Rhs));
-					StoredRange = std::exchange(Rhs.StoredRange, nullptr);
-					SharedCount = std::exchange(Rhs.SharedCount, nullptr);
+					SharedState = std::exchange(Rhs.SharedState, nullptr);
 				}
 				return *this;
 			}
@@ -97,8 +96,7 @@ namespace hiena
 				{
 					Release();
 					JArrayBase<ValueType>::operator=(Rhs);
-					StoredRange = Rhs.StoredRange;
-					SharedCount = Rhs.SharedCount;
+					SharedState = Rhs.SharedState;
 				}
 				return *this;
 			}
@@ -108,51 +106,70 @@ namespace hiena
 				Release();
 			}
 
+			ValueType GetAt(jsize Idx, CheckedJniEnv Env = {})
+			{
+				if (!SharedState->StoredRange)
+				{
+					Pull(Env);
+				}
+				return SharedState->StoredRange[Idx];
+			}
+
+			void SetAt(jsize Idx, ValueType Value, CheckedJniEnv Env = {})
+			{
+				if (!SharedState->StoredRange)
+				{
+					Pull(Env);
+				}
+				SharedState->StoredRange[Idx] = Value;
+				SharedState->bIsModified = true;
+			}
+
+			void Pull(CheckedJniEnv Env = {})
+			{
+				if (SharedState->StoredRange)
+				{
+					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), SharedState->StoredRange, JNI_ABORT, Env);
+					SharedState->bIsModified = false;
+				}
+				SharedState->StoredRange = PrimitiveArrayOps<ValueType>::GetArrayElements(this->GetInstance(), Env);
+			}
+
+			void Commit(CheckedJniEnv Env = {}) const
+			{
+				if (SharedState->StoredRange && SharedState->bIsModified)
+				{
+					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), SharedState->StoredRange, JNI_COMMIT, Env);
+					SharedState->bIsModified = false;
+				}
+			}
+
 			friend SourceJniType ToJniArgument(const JPrimitiveArray& Obj, CheckedJniEnv Env)
 			{
 				Obj.Commit(Env);
 				return (SourceJniType)Obj.GetInstance();
 			}
 
-			ValueType GetAt(jsize Idx, CheckedJniEnv Env = {})
-			{
-				LoadRange(Env);
-				return StoredRange[Idx];
-			}
-
-			void SetAt(jsize Idx, ValueType Value, CheckedJniEnv Env = {})
-			{
-				LoadRange(Env);
-				StoredRange[Idx] = Value;
-			}
 		private:
-			ValueType* StoredRange = nullptr;
-			std::shared_ptr<Empty_t> SharedCount;
-
-			void LoadRange(CheckedJniEnv Env)
+			struct State
 			{
-				if (StoredRange == nullptr)
-				{
-					StoredRange = PrimitiveArrayOps<ValueType>::GetArrayElements(this->GetInstance(), Env);
-					SharedCount = std::make_shared<Empty_t>();
-				}
-			}
-			void Commit(CheckedJniEnv Env) const
-			{
-				if (StoredRange)
-				{
-					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), StoredRange, JNI_COMMIT, Env);
-				}
-			}
+				ValueType* StoredRange = nullptr;
+				bool bIsModified = false;
+			};
+			std::shared_ptr<State> SharedState;
 
 			void Release()
 			{
-				if (StoredRange && SharedCount.use_count() == 1)
+				if (SharedState.use_count() == 1)
 				{
-					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), StoredRange, 0);
+					CheckedJniEnv Env;
+					if(SharedState->StoredRange)
+					{
+						jint Mode = SharedState->bIsModified? JNI_COMMIT : JNI_ABORT;
+						PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), SharedState->StoredRange, Mode, Env);
+					}
 				}
-				StoredRange = nullptr;
-				SharedCount = nullptr;
+				SharedState.reset();
 			}
 		};
 

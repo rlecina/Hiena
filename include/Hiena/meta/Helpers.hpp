@@ -3,8 +3,7 @@
 #include <type_traits>
 
 namespace hiena
-{	struct Empty_t{};
-
+{
 	struct WildcardType
 	{
 		template <typename T>
