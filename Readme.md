@@ -1,5 +1,7 @@
 # The Hiena library
 
+![](Hiena.png)
+
 ## The wild smiley dog that makes JNI easy
 
 ### Description
@@ -161,7 +163,7 @@ namespace com::example::testapp
         TestClass(const java::lang::String& Text);
 
         String DoSomethingUseful(const String& Input)
-        jint StaticDoSomethingElseUseful(String[] Input) {
+        jint StaticDoSomethingElseUseful(JArray<String>& Input);
     };
 }
 ```
