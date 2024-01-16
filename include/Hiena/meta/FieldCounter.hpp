@@ -135,9 +135,9 @@ namespace hiena
 	template <class T>
 	Wrapper(T) -> Wrapper<T>;
 
-// This workaround is necessary for clang.
+    // This avoids clang triggerings an error about using addresses to fields (it says it cannot use the address of subobject, but it should)
 	template <class T>
-	constexpr auto wrap(const T& arg) noexcept {
+	constexpr auto Wrap(const T& arg) noexcept {
 		return Wrapper{arg};
 	}
 
@@ -147,7 +147,7 @@ namespace hiena
 		constexpr auto Fields = ToTuple(detail::SampleObject<T>);
 		return [&]<auto... Idx>(std::index_sequence<Idx...>)
 			{
-				return std::array{(const char*)(NameOfField<wrap(&std::get<Idx>(Fields))>.Content)...};
+				return std::array{NameOfField<Wrap(&std::get<Idx>(Fields))>.c_str()...};
 			}(std::make_index_sequence<std::tuple_size_v<decltype(Fields)>>());
 	}
 #ifdef __clang__

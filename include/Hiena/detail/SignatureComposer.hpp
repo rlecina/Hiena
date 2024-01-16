@@ -1,136 +1,92 @@
 #pragma once
 
-#include <string_view>
-
-#include "Hiena/detail/JavaObjectBase.hpp"
 #include "Hiena/JArray.hpp"
-#include "Hiena/meta/FieldCounter.hpp"
 #include "Hiena/meta/Helpers.hpp"
 #include "Hiena/utility/CompileTimeString.hpp"
 #include "Hiena/utility/JniTraits.hpp"
 
 namespace hiena
 {
-	template <typename T>
-	struct HasJavaConversion
-	{
-		static constexpr bool Value = IsJniObjectType<T> || IsJniPrimitiveType<T>;
-	};
-
 	namespace detail
 	{
-		template <int Length>
-		static consteval auto FindTagExcluded(std::string_view ThisFunction, const char (&Tag)[Length])
+		template <auto CppType>
+		static consteval auto JavaJniClassFromCppType()
 		{
-			return ThisFunction.rfind(Tag) + Length - 1;
+			// Translate namespaced C++ types into path-like Java type names
+			using namespace CompileTime;
+			return ReplaceAll<CppType, "::"_cs, "/"_cs>();
 		}
-
-		static consteval auto FindTagIncluded(std::string_view ThisFunction, const char* Tag)
-		{
-			return ThisFunction.rfind(Tag);
-		}
-
-		template <auto N>
-		constexpr int ComputeJavaClassLength(const CompileTimeString<N>& CppType)
-		{
-			int Size = 0;
-			char Prev = 0;
-			for(auto C: CppType)
-			{
-				if (C != ':' || Prev != ':')
-				{
-					Size++;
-				}
-				Prev = C;
-			}
-			return Size;
-		}
-
-		template <auto PathLikeSize, auto N>
-		constexpr auto ComputeJavaClass(const CompileTimeString<N>& CppType)
-		{
-			char Buffer[PathLikeSize];
-			char Prev = 0;
-			char* Current = &Buffer[0];
-			for(auto C: CppType)
-			{
-				if (C != ':' || Prev != ':')
-				{
-					*Current++ = C == ':' ? '/' : C;
-				}
-				Prev = C;
-			}
-			return CompileTimeString<PathLikeSize>(Buffer);
-		}
-
-#ifdef __clang__
-		static constexpr const char StartFuncTag[] = "::";
-		static constexpr const char EndFuncTag[] = "]";
-#elif defined(__GNUC__) || defined(__GNUG__)
-		static constexpr const char StartFuncTag[] = "::";
-		static constexpr const char EndFuncTag[] = "]";
-#endif
 
 		template <auto Func>
 		struct GetFuncNameImpl
 		{
-			static constexpr auto Result = [] {
-					static_assert(IsFunctionPointer<decltype(Func)> || std::is_member_function_pointer_v<decltype(Func)>, "Unsupported type");
-					constexpr std::string_view ThisFunction(__PRETTY_FUNCTION__); //Location.function_name());
-					constexpr auto Start = FindTagExcluded(ThisFunction, StartFuncTag);
-					constexpr auto End = FindTagIncluded(ThisFunction, EndFuncTag);
-					return CompileTimeString<End - Start + 1>(ThisFunction.data() + Start, End - Start);
-				}();
-		};
+			static_assert(IsFunctionPointer<decltype(Func)> || std::is_member_function_pointer_v<decltype(Func)>, "Unsupported type");
 
+			// Expected __PRETTY_FUNCTION__ for function myFunc in class MyClass in comments
 #ifdef __clang__
-		static constexpr const char StartFuncClassTag[] = "&";
-		static constexpr const char EndFuncClassTag[] = "::";
+			// static auto hiena::detail::GetFuncNameImpl<&MyClass::myFunc>::Get() [Func = &MyClass::myFunc]
+			//                                                                                     ^^      ^
+			static constexpr auto StartTag = CompileTimeString("::");
+			static constexpr auto EndTag = CompileTimeString("]");
 #elif defined(__GNUC__) || defined(__GNUG__)
-		static constexpr const char StartFuncClassTag[] = "&";
-		static constexpr const char EndFuncClassTag[] = "::";
+			// static consteval auto hiena::detail::GetFuncNameImpl<Func>::Get() [with auto Func = &MyClass::myFunc]
+			//                                                                                             ^^      ^
+			static constexpr auto StartTag = CompileTimeString("::");
+			static constexpr auto EndTag = CompileTimeString("]");
 #endif
+			static consteval auto Get()
+			{
+				return CompileTime::ChopLastTagged<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
+			}
+
+			static constexpr auto Result = Get();
+		};
 
 		template <auto Func>
 		struct GetJavaClassFromFuncImpl
 		{
-			static constexpr auto Result = [] {
-				static_assert(IsFunctionPointer<decltype(Func)> || std::is_member_function_pointer_v<decltype(Func)>, "Unsupported type");
-				constexpr std::string_view ThisFunction(__PRETTY_FUNCTION__); //Location.function_name());
-				constexpr auto Start = FindTagExcluded(ThisFunction, StartFuncClassTag);
-				constexpr auto End = FindTagIncluded(ThisFunction, EndFuncClassTag);
-				constexpr auto CppType = CompileTimeString<End - Start + 1>(ThisFunction.data() + Start, End - Start);
-				constexpr auto MangledSize = ComputeJavaClassLength(CppType);
-				return ComputeJavaClass<MangledSize>(CppType);
-			}();
-		};
+			static_assert(IsFunctionPointer<decltype(Func)> || std::is_member_function_pointer_v<decltype(Func)>, "Unsupported type");
 
+			//Expected __PRETTY_FUNCTION__ for function myFunc in class MyClass in comments
 #ifdef __clang__
-		static constexpr const char StartTag[] = "[Object = ";
-		static constexpr const char EndTag[] = "]";
+			// static auto hiena::detail::GetJavaClassFromFuncImpl<&MyClass::myFunc>::Get() [Func = &MyClass::myFunc]
+			//                                                                                      ^       ^^
+			static constexpr auto StartTag = CompileTimeString("&");
+			static constexpr auto  EndTag = CompileTimeString("::");
 #elif defined(__GNUC__) || defined(__GNUG__)
-		static constexpr const char StartTag[] = "[with Object = ";
-		static constexpr const char EndTag[] = "]";
+			// static consteval auto hiena::detail::GetJavaClassFromFuncImpl<Func>::Get() [with auto Func = &MyClass::myFunc]
+			//                                                                                              ^       ^^
+			static constexpr auto StartTag = CompileTimeString("&");
+			static constexpr auto EndTag = CompileTimeString("::");
 #endif
+			static consteval auto Get()
+			{
+				constexpr auto CppType = CompileTime::ChopLastTagged<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
+				return JavaJniClassFromCppType<CppType>();
+			}
+			static constexpr auto Result = Get();
+		};
 
 		template <typename Object>
 		struct Mangler
 		{
-			static consteval auto GetCppTypename()
-			{
-				//constexpr auto Location = std::source_location::current(); // __PRETTY_FUNCTION__ works on gcc too
-				constexpr std::string_view ThisFunction(__PRETTY_FUNCTION__); //Location.function_name());
-				constexpr auto Start = FindTagExcluded(ThisFunction, StartTag);
-				constexpr auto End = FindTagIncluded(ThisFunction, EndTag);
-				constexpr auto Length = End - Start;
-				return CompileTimeString<Length+1>(ThisFunction.data() + Start, Length);
-			}
+			// Expected __PRETTY_FUNCTION__ for class MyClass in comments
+#ifdef __clang__
+			// static auto hiena::detail::Mangler<MyClass>::GetJavaClassNameImpl() [Object = MyClass]
+			//                                                                     ^^^^^^^^^^       ^
+			static constexpr auto StartTag = CompileTimeString("[Object = ");
+			static constexpr auto EndTag = CompileTimeString("]");
+#elif defined(__GNUC__) || defined(__GNUG__)
+			// static consteval auto hiena::detail::Mangler<Object>::GetJavaClassNameImpl() [with Object = MyClass]"
+			//                                                                              ^^^^^^^^^^^^^^^       ^
+			static constexpr auto StartTag = CompileTimeString("[with Object = ");
+			static constexpr auto EndTag = CompileTimeString("]");
+#endif
 
 			static consteval auto GetJavaClassNameImpl()
 			{
-				constexpr auto CppType = GetCppTypename();
-				constexpr auto PathLikeSize = ComputeJavaClassLength(CppType);
-				return ComputeJavaClass<PathLikeSize>(CppType);
+				constexpr auto CppType = CompileTime::ChopLastTagged<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
+				return JavaJniClassFromCppType<CppType>();
 			}
 
 			static consteval auto GetJavaMangledType()
@@ -142,20 +98,20 @@ namespace hiena
 		template <typename T>
 		struct GetJavaClassNameImpl
 		{
-			static_assert(HasJavaConversion<ValueType<T>>::Value, "Type does not support Java conversion");
+			static_assert(HasJniConversion<ValueType<T>>::Value, "Type does not support Java conversion");
 			static constexpr auto Result = Mangler<ValueType<T>>::GetJavaClassNameImpl();
 		};
 
 		template <typename T>
 		struct MangledName
 		{
-			static_assert(HasJavaConversion<ValueType<T>>::Value, "Type does not support Java conversion");
+			static_assert(HasJniConversion<ValueType<T>>::Value, "Type does not support Java conversion");
 			static constexpr auto Result = Mangler<T>::GetJavaMangledType();
 		};
 
 #define HIENA_PRIMITIVE_MANGLED_NAME(TYPE, MANGLED) \
         template <> \
-		struct MangledName<TYPE> { static constexpr auto Result = MANGLED##_cs; };
+		struct MangledName<TYPE> { static constexpr auto Result = CompileTimeString(MANGLED); };
 
 		HIENA_PRIMITIVE_MANGLED_NAME(void, "V")
 		HIENA_PRIMITIVE_MANGLED_NAME(jboolean, "Z")
@@ -172,8 +128,8 @@ namespace hiena
 		template <typename Ret, typename... Args>
 		struct MangledName<Ret(Args...)>
 		{
-			static_assert(HasJavaConversion<ValueType<Ret>>::Value, "Type does not support Java conversion");
-			static_assert((HasJavaConversion<ValueType<Args>>::Value && ... && true), "Type does not support Java conversion");
+			static_assert(HasJniConversion<ValueType<Ret>>::Value, "Type does not support Java conversion");
+			static_assert((HasJniConversion<ValueType<Args>>::Value && ... && true), "Type does not support Java conversion");
 			static constexpr auto Result = []
 				{
 					if constexpr(sizeof...(Args) > 0)
@@ -217,24 +173,24 @@ namespace hiena
 	template <typename T>
 	constexpr const char* GetJavaClassName()
 	{
-		return detail::GetJavaClassNameImpl<T>::Result.Content;
+		return detail::GetJavaClassNameImpl<T>::Result.c_str();
 	}
 
 	template <typename T>
 	constexpr const char* GetMangledName()
 	{
-		return detail::MangledName<ValueType<T>>::Result.Content;
+		return detail::MangledName<ValueType<T>>::Result.c_str();
 	}
 
 	template <auto Func>
 	constexpr const char* GetFuncName()
 	{
-		return detail::GetFuncNameImpl<Func>::Result.Content;
+		return detail::GetFuncNameImpl<Func>::Result.c_str();
 	}
 
 	template <auto Func>
 	constexpr const char* GetJavaClassFrom()
 	{
-		return detail::GetJavaClassFromFuncImpl<Func>::Result.Content;
+		return detail::GetJavaClassFromFuncImpl<Func>::Result.c_str();
 	}
 }

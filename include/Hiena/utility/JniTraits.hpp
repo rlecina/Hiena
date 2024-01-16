@@ -53,6 +53,11 @@ namespace hiena
 	template <typename T>
 	inline static constexpr bool IsJArrayType = detail::IsJArrayTypeImpl<T>::Value;
 
+	template <typename T>
+	struct HasJniConversion
+	{
+		static constexpr bool Value = IsJniObjectType<T> || IsJniPrimitiveType<T>;
+	};
 
 	template <typename T>
 	using LessSpecializedJniType = std::conditional_t<std::is_base_of_v<std::remove_pointer_t<jobject>,
