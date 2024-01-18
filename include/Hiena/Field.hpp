@@ -13,7 +13,7 @@ namespace hiena
 	{
 		static_assert(IsJniObjectType<T>, "Invalid Field owner");
 		auto Tuple = ToTuple(Fields);
-		auto Names = GetFieldNames<F>();
+		static constexpr auto Names = GetFieldNames<F>();
 		IndexedTupleFor(Tuple, [&](size_t Idx, auto& Field)
 							  	{
 									Field.Setup(Owner, GetJavaClassName<T>(), Names[Idx]);

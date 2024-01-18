@@ -1,6 +1,5 @@
 #pragma once
 
-#include <string_view>
 #include <tuple>
 #include <type_traits>
 
@@ -32,13 +31,22 @@ namespace hiena
 		template <auto T>
 		struct NameOfFieldImpl
 		{
-			static constexpr auto GetResult()
+			// Expected __PRETTY_FUNCTION__ for field myField in class instance SampleObject of class MyClass in comments
+#ifdef __clang__
+			// static auto hiena::detail::NameOfFieldImpl<Wrapper<int *>{&SampleObject.myField}>::Get() [T = Wrapper<int *>{&SampleObject.myField}]
+			//                                                                                                                           ^       ^^
+			static constexpr auto StartTag = CompileTimeString(".");
+			static constexpr auto EndTag = CompileTimeString("}]");
+#elif defined(__GNUC__) || defined(__GNUG__)
+			// static constexpr auto hiena::detail::NameOfFieldImpl<T>::Get() [with auto T = Wrapper<int*>{(& hiena::detail::SampleObject<MyClass>.MyClass::myField)}]
+			//                                                                                                                                            ^^       ^^^
+			static constexpr auto StartTag = CompileTimeString("::");
+			static constexpr auto EndTag = CompileTimeString(")}]");
+#endif
+
+			static constexpr auto Get()
 			{
-				constexpr std::string_view Name(__PRETTY_FUNCTION__);
-				constexpr auto Start = Name.rfind(".") + 1;
-				constexpr auto End = Name.rfind("}]");
-				constexpr auto Length = End - Start;
-				return CompileTimeString<Length + 1>(Name.data() + Start, Length);
+				return CompileTime::ChopLastTagged<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
 			}
 		};
 
@@ -119,7 +127,7 @@ namespace hiena
 	}
 
 	template <auto T>
-	static constexpr auto NameOfField = detail::NameOfFieldImpl<T>::GetResult();
+	static constexpr auto NameOfField = detail::NameOfFieldImpl<T>::Get();
 
 #ifdef __clang__
 #pragma clang diagnostic push
