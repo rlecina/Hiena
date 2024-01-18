@@ -46,7 +46,7 @@ namespace hiena
 
 			static constexpr auto Get()
 			{
-				return CompileTime::ChopLastTagged<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
+				return CompileTime::GetLastBetweenTags<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
 			}
 		};
 

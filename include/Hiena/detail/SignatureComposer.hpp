@@ -36,7 +36,7 @@ namespace hiena
 #endif
 			static consteval auto Get()
 			{
-				return CompileTime::ChopLastTagged<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
+				return CompileTime::GetLastBetweenTags<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
 			}
 
 			static constexpr auto Result = Get();
@@ -61,7 +61,7 @@ namespace hiena
 #endif
 			static consteval auto Get()
 			{
-				constexpr auto CppType = CompileTime::ChopLastTagged<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
+				constexpr auto CppType = CompileTime::GetLastBetweenTags<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
 				return JavaJniClassFromCppType<CppType>();
 			}
 			static constexpr auto Result = Get();
@@ -85,7 +85,7 @@ namespace hiena
 
 			static consteval auto GetJavaClassNameImpl()
 			{
-				constexpr auto CppType = CompileTime::ChopLastTagged<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
+				constexpr auto CppType = CompileTime::GetLastBetweenTags<CompileTimeString(__PRETTY_FUNCTION__), StartTag, EndTag>();
 				return JavaJniClassFromCppType<CppType>();
 			}
 

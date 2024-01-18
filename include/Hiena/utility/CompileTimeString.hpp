@@ -209,7 +209,7 @@ namespace hiena
 		}
 
 		template <auto Source, auto PrefixTag, auto PostfixTag>
-		consteval auto ChopLastTagged()
+		consteval auto GetLastBetweenTags()
 		{
 			constexpr auto StartN = FindLast(Source, PrefixTag) + PrefixTag.length();
 			constexpr auto EndN = FindLast(Source, PostfixTag);
