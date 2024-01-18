@@ -51,7 +51,7 @@ namespace hiena
 		};
 
 		template <class T>
-		T SampleObject;
+		extern T SampleObject;
 	}
 
 	template <class T, int Count>
@@ -129,11 +129,6 @@ namespace hiena
 	template <auto T>
 	static constexpr auto NameOfField = detail::NameOfFieldImpl<T>::Get();
 
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wundefined-var-template"
-#endif
-
 	template <class T>
 	struct Wrapper {
 		using Type = T;
@@ -152,14 +147,18 @@ namespace hiena
 	template <typename T>
 	consteval auto GetFieldNames()
 	{
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundefined-var-template"
+#endif
 		constexpr auto Fields = ToTuple(detail::SampleObject<T>);
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 		return [&]<auto... Idx>(std::index_sequence<Idx...>)
 			{
 				return std::array{NameOfField<Wrap(&std::get<Idx>(Fields))>.c_str()...};
 			}(std::make_index_sequence<std::tuple_size_v<decltype(Fields)>>());
 	}
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
 
 }
