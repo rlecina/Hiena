@@ -18,6 +18,9 @@ find_package(game-activity REQUIRED CONFIG)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../../.. Hiena)
 
+set(CMAKE_SHARED_LINKER_FLAGS
+    "${CMAKE_SHARED_LINKER_FLAGS} -u Java_com_google_androidgamesdk_GameActivity_initializeNativeCode")
+
 # Configure libraries CMake uses to link your target library.
 target_link_libraries(testapp
         # The game activity

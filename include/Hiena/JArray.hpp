@@ -127,17 +127,20 @@ namespace hiena
 
 			void Pull(CheckedJniEnv Env = {})
 			{
-				if (SharedState->StoredRange)
+				if (SharedState)
 				{
-					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), SharedState->StoredRange, JNI_ABORT, Env);
-					SharedState->bIsModified = false;
+					if (SharedState->StoredRange)
+					{
+						PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), SharedState->StoredRange, JNI_ABORT, Env);
+						SharedState->bIsModified = false;
+					}
+					SharedState->StoredRange = PrimitiveArrayOps<ValueType>::GetArrayElements(this->GetInstance(), Env);
 				}
-				SharedState->StoredRange = PrimitiveArrayOps<ValueType>::GetArrayElements(this->GetInstance(), Env);
 			}
 
 			void Commit(CheckedJniEnv Env = {}) const
 			{
-				if (SharedState->StoredRange && SharedState->bIsModified)
+				if (SharedState && SharedState->StoredRange && SharedState->bIsModified)
 				{
 					PrimitiveArrayOps<T>::ReleaseArrayElements(this->GetInstance(), SharedState->StoredRange, JNI_COMMIT, Env);
 					SharedState->bIsModified = false;
